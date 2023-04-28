@@ -37,7 +37,7 @@ func request(url: URL, string: Bool) async throws -> Result<NodeValueConvertible
 
     return Result<NodeValueConvertible, Error> {
         try NodeObject([
-            "data": string ? String(decoding: data, as: UTF8.self) : data,
+            "body": string ? String(decoding: data, as: UTF8.self) : data,
             "statusCode": httpUrlResponse.statusCode,
             "headers": httpUrlResponse.allHeaderFields.reduce([:]) { (dict, item) in
                 var dict = dict
