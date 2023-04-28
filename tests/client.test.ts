@@ -1,7 +1,7 @@
-import SwiftFetch from '../dist'
+import { requestAsString } from '../dist'
 
 test('Fetch JSON document', async () => {
-  const response = await SwiftFetch.requestAsString('https://httpbin.org/json')
+  const response = await requestAsString('https://httpbin.org/json')
 
   expect(response.statusCode).toBe(200)
   expect(response.body).toBeDefined()

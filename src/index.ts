@@ -5,6 +5,5 @@ const SwiftFetch = require('../build/SwiftFetch.node') as {
   requestAsBuffer(url: string): Promise<FetchResponse<Buffer>>
 }
 
-export default {
-  ...SwiftFetch,
-}
+export const requestAsString = SwiftFetch.requestAsString
+export const requestAsBuffer = SwiftFetch.requestAsBuffer
