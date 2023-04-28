@@ -1,0 +1,31 @@
+{
+  "name": "swift-fetch",
+  "version": "1.0.0",
+  "main": "dist/index",
+  "repository": "https://github.com/TextsHQ/swift-fetch.git",
+  "license": "UNLICENSED",
+  "private": true,
+  "scripts": {
+    "build": "ts-node scripts/build.ts && tsc",
+    "test": ""
+  },
+  "dependencies": {
+    "node-swift": "https://github.com/kabiroberai/node-swift#master"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.0.0-0",
+    "@babel/plugin-syntax-flow": "^7.14.5",
+    "@babel/plugin-transform-react-jsx": "^7.14.9",
+    "@textshq/eslint-config": "https://github.com/TextsHQ/eslint-config#main",
+    "@textshq/platform-sdk": "https://github.com/TextsHQ/platform-sdk#main",
+    "@types/node": "^18.16.2",
+    "@typescript-eslint/eslint-plugin": "^5.0.0",
+    "@typescript-eslint/parser": "^5.0.0",
+    "eslint": "^8.39.0",
+    "eslint-plugin-import": "^2.25.3",
+    "eslint-plugin-react": "^7.28.0",
+    "react": "^18.0.0",
+    "ts-node": "^10.9.1",
+    "typescript": "^5.0.4"
+  }
+}
