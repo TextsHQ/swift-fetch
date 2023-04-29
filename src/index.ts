@@ -1,5 +1,5 @@
 import type { FetchOptions, FetchResponse } from '@textshq/platform-sdk'
-import type FormData from 'form-data'
+import FormData from 'form-data'
 
 interface SwiftFetchRequestOptions {
   method?: string
@@ -13,6 +13,7 @@ const SwiftFetch = require('../build/SwiftFetch.node') as {
 }
 
 export async function fetch(url: string, options?: FetchOptions): Promise<FetchResponse<Buffer>> {
+  let urlString = url
   const swiftOptions: SwiftFetchRequestOptions = {
     method: options?.method,
     headers: options?.headers,
@@ -30,7 +31,23 @@ export async function fetch(url: string, options?: FetchOptions): Promise<FetchR
     swiftOptions.body = (options.body as FormData).getBuffer()
   }
 
-  const response = await SwiftFetch.request(url, swiftOptions)
+  if (options?.form) {
+    const formData = new FormData()
+
+    for (const [key, value] of Object.entries(options.form)) {
+      formData.append(key, value)
+    }
+
+    swiftOptions.headers = formData.getHeaders(swiftOptions.headers)
+    swiftOptions.body = formData.getBuffer()
+  }
+
+  if (options?.searchParams) {
+    const searchParams = new URLSearchParams(options.searchParams as Record<string, string>)
+    urlString += `?${searchParams.toString()}`
+  }
+
+  const response = await SwiftFetch.request(urlString, swiftOptions)
 
   if (response.headers.cookie) {
     options?.cookieJar?.setCookieSync(response.headers.cookie, url)
