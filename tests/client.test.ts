@@ -1,5 +1,7 @@
 import { FetchOptions } from '@textshq/platform-sdk'
-import { fetch } from '../dist'
+import FormData from 'form-data'
+import { CookieJar } from 'tough-cookie'
+import { fetch } from '../src'
 
 test('Fetch JSON document', async () => {
   const response = await fetch('https://httpbin.org/json')
@@ -61,4 +63,69 @@ test('Response headers', async () => {
   // Node.js expects either string or string[] but Swift doesn't return an array
   expect(response.headers.foo).toBe('bar, test')
   expect(response.headers.bar).toBe('foo')
+})
+
+test('Request form', async () => {
+  const response = await fetch('https://httpbin.org/post', {
+    method: 'POST',
+    form: {
+      foo: 'bar',
+      test: 2,
+    },
+  })
+
+  expect(response.statusCode).toBe(200)
+
+  const body = JSON.parse(response.body.toString())
+  console.log(response.body.toString())
+  expect(body.form.foo).toBe('bar')
+})
+
+// TODO: disable redirect in Swift
+// test('Request cookie handling', async () => {
+//   const jar = new CookieJar()
+
+//   const response = await fetch('https://httpbin.org/cookies/set', {
+//     cookieJar: jar,
+//     searchParams: {
+//       foo: 'bar',
+//       lemon: 'juice',
+//       strawberry: 'blueberry',
+//     },
+//   })
+
+//   expect(response.statusCode).toBe(302)
+//   expect(response.headers['set-cookie']).toHaveLength(3)
+
+//   const cookieStr = jar.getCookieStringSync('https://httpbin.org')
+
+//   expect(cookieStr).toHaveLength(42)
+// })
+
+test('Request multi-part', async () => {
+  const response = await fetch('https://httpbin.org/image/webp')
+
+  expect(response.statusCode).toBe(200)
+  expect(response.body.constructor.name).toBe('Buffer')
+  expect(response.body.length).toBeGreaterThan(10000)
+
+  const form = new FormData()
+
+  form.append('foo', 'bar')
+  form.append('blizzy', response.body)
+
+  const response_2 = await fetch('https://httpbin.org/anything', {
+    method: 'POST',
+    body: form,
+  })
+
+  expect(response_2.body.length).toBeGreaterThan(10000)
+})
+
+test('Response binary data', async () => {
+  const response = await fetch('https://httpbin.org/image/webp')
+
+  expect(response.statusCode).toBe(200)
+  expect(response.body.constructor.name).toBe('Buffer')
+  expect(response.body.length).toBeGreaterThan(10000)
 })
