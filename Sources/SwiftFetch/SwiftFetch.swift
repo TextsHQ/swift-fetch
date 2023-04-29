@@ -46,7 +46,7 @@ func mapToURLRequest (url: URL, options: [String: NodeValue]?) throws -> URLRequ
                                     guard let key = item.key as? String, let value = item.value as? String else {
                                         return dict
                                     }
-                                    dict[key] = value
+                                    dict[key.lowercased()] = value
                                     return dict
                                 }
                             ])
