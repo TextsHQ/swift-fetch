@@ -12,7 +12,9 @@
     "test": "jest"
   },
   "dependencies": {
-    "node-swift": "https://github.com/kabiroberai/node-swift#master"
+    "form-data": "^4.0.0",
+    "node-swift": "https://github.com/kabiroberai/node-swift#master",
+    "tough-cookie": "^4.1.2"
   },
   "devDependencies": {
     "@babel/core": "^7.0.0-0",
