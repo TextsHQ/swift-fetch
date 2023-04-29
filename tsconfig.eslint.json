@@ -1,0 +1,3 @@
+{
+  "extends": "@textshq/platform-sdk/tsconfig.base.json",
+}
