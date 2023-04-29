@@ -5,7 +5,7 @@ import Foundation
 
 let package = Package(
     name: "swift-fetch",
-    platforms: [.iOS("15.0"), .macOS("11.0")],
+    platforms: [.iOS("15.0"), .macOS("10.15")],
     products: [
         .library(
             name: "SwiftFetch",
