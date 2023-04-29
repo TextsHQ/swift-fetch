@@ -1,9 +1,14 @@
 import type { FetchResponse } from '@textshq/platform-sdk'
 
-const SwiftFetch = require('../build/SwiftFetch.node') as {
-  requestAsString(url: string): Promise<FetchResponse<string>>
-  requestAsBuffer(url: string): Promise<FetchResponse<Buffer>>
+interface SwiftFetchRequestOptions {
+  method?: string
+  headers?: Record<string, string>
+  body?: Buffer
 }
 
-export const requestAsString = SwiftFetch.requestAsString
-export const requestAsBuffer = SwiftFetch.requestAsBuffer
+// eslint-disable-next-line global-require
+const SwiftFetch = require('../build/SwiftFetch.node') as {
+  request(url: string, options?: SwiftFetchRequestOptions): Promise<FetchResponse<Buffer>>
+}
+
+export const { request } = SwiftFetch
