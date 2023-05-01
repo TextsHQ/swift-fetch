@@ -1,3 +1,4 @@
+import { Readable } from 'stream'
 import type { FetchOptions, FetchResponse } from '@textshq/platform-sdk'
 import FormData from 'form-data'
 
@@ -7,12 +8,15 @@ interface SwiftFetchRequestOptions {
   body?: Buffer
 }
 
+type SwiftFetchStreamEvent = 'response' | 'data' | 'end'
+
 // eslint-disable-next-line global-require
 const SwiftFetch = require('../build/SwiftFetch.node') as {
   request(url: string, options?: SwiftFetchRequestOptions): Promise<FetchResponse<Buffer>>
+  requestStream(url: string, options: SwiftFetchRequestOptions, callback: (event: SwiftFetchStreamEvent, data: Buffer | FetchResponse<null>) => void): Readable
 }
 
-export async function fetch(url: string, options?: FetchOptions): Promise<FetchResponse<Buffer>> {
+const fetchOptionsToSwiftFetchOptions = (url: string, options?: FetchOptions): [string, SwiftFetchRequestOptions] => {
   let urlString = url
   const swiftOptions: SwiftFetchRequestOptions = {
     method: options?.method,
@@ -47,6 +51,12 @@ export async function fetch(url: string, options?: FetchOptions): Promise<FetchR
     urlString += `?${searchParams.toString()}`
   }
 
+  return [urlString, swiftOptions]
+}
+
+export async function fetch(url: string, options?: FetchOptions): Promise<FetchResponse<Buffer>> {
+  const [urlString, swiftOptions] = fetchOptionsToSwiftFetchOptions(url, options)
+
   const response = await SwiftFetch.request(urlString, swiftOptions)
 
   if (response.headers.cookie) {
@@ -54,4 +64,29 @@ export async function fetch(url: string, options?: FetchOptions): Promise<FetchR
   }
 
   return response
+}
+
+export function fetchStream(url: string, options?: FetchOptions): Readable {
+  const [urlString, swiftOptions] = fetchOptionsToSwiftFetchOptions(url, options)
+
+  const readableStream = new Readable({
+    read() {},
+  })
+
+  SwiftFetch.requestStream(urlString, swiftOptions, (event: SwiftFetchStreamEvent, data: Buffer | FetchResponse<null>) => {
+    switch (event) {
+      case 'response':
+        readableStream.emit('response', data as FetchResponse<null>)
+        break
+      case 'data':
+        readableStream.push(data)
+        break
+      case 'end':
+        readableStream.push(null)
+        break
+      default:
+        break
+    }
+  })
+  return readableStream
 }

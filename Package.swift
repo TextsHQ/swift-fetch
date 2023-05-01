@@ -1,4 +1,4 @@
-// swift-tools-version:5.4
+// swift-tools-version:5.5
 
 import PackageDescription
 import Foundation
@@ -13,13 +13,17 @@ let package = Package(
         )
     ],
     dependencies: [
-        .package(path: "node_modules/node-swift")
+        .package(path: "node_modules/node-swift"),
+        .package(url: "https://github.com/apple/swift-nio.git", from: "2.50.0"),
+        .package(url: "https://github.com/1Conan/async-http-client.git", branch: "main"),
     ],
     targets: [
         .target(
             name: "SwiftFetch",
             dependencies: [
-                .product(name: "NodeAPI", package: "node-swift")
+                .product(name: "NodeAPI", package: "node-swift"),
+                .product(name: "NIOFoundationCompat", package: "swift-nio"),
+                .product(name: "AsyncHTTPClient", package: "async-http-client"),
             ]
         )
     ]

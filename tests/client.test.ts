@@ -77,7 +77,7 @@ test('Request form', async () => {
   expect(response.statusCode).toBe(200)
 
   const body = JSON.parse(response.body.toString())
-  console.log(response.body.toString())
+
   expect(body.form.foo).toBe('bar')
 })
 
@@ -106,7 +106,7 @@ test('Request multi-part', async () => {
   const response = await fetch('https://httpbin.org/image/webp')
 
   expect(response.statusCode).toBe(200)
-  expect(response.body.constructor.name).toBe('Buffer')
+  expect(response.body?.constructor.name).toBe('Buffer')
   expect(response.body.length).toBeGreaterThan(10000)
 
   const form = new FormData()
@@ -126,6 +126,6 @@ test('Response binary data', async () => {
   const response = await fetch('https://httpbin.org/image/webp')
 
   expect(response.statusCode).toBe(200)
-  expect(response.body.constructor.name).toBe('Buffer')
-  expect(response.body.length).toBeGreaterThan(10000)
+  expect(response.body?.constructor.name).toBe('Buffer')
+  expect(response.body?.length).toBeGreaterThan(10000)
 })
