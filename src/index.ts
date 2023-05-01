@@ -90,3 +90,21 @@ export function fetchStream(url: string, options?: FetchOptions): Readable {
   })
   return readableStream
 }
+
+class Client {
+  async requestAsString(url: string, options?: FetchOptions): Promise<FetchResponse<string>> {
+    const request = await fetch(url, options)
+    const stringifiedBody = request.body?.toString('utf-8')
+
+    return {
+      ...request,
+      body: stringifiedBody,
+    }
+  }
+
+  async requestAsBuffer(url: string, options?: FetchOptions): Promise<FetchResponse<Buffer>> {
+    return fetch(url, options)
+  }
+}
+
+export const createHttpClient = () => new Client()
