@@ -46,6 +46,9 @@ let httpClient: HTTPClient = {
 
     config.decompression = .enabled(limit: .none)
 
+    if ProcessInfo.processInfo.environment["NODE_TLS_REJECT_UNAUTHORIZED"] == "0" {
+        config.tlsConfiguration?.certificateVerification = .none
+    }
 
     // Custom Configs from fork
     config.tlsConfiguration?.grease = true
