@@ -16,12 +16,14 @@ describe('Compressions', () => {
     const response = await fetch('https://httpbin.org/gzip')
 
     expect(response.statusCode).toBe(200)
+    expect(response.body.toString().startsWith('{')).toBe(true)
   })
 
   test('Brotli', async () => {
     const response = await fetch('https://httpbin.org/brotli')
 
     expect(response.statusCode).toBe(200)
+    expect(response.body.toString().startsWith('{')).toBe(true)
   })
 })
 
