@@ -31,11 +31,27 @@ let httpClient: HTTPClient = {
     ]
     config.tlsConfiguration?.minimumTLSVersion = .tlsv12
     config.tlsConfiguration?.maximumTLSVersion = .tlsv13
+    config.tlsConfiguration?.applicationProtocols = ["h2", "http/1.1"]
+    config.tlsConfiguration?.renegotiationSupport = .explicit
+    config.tlsConfiguration?.verifySignatureAlgorithms = [
+        .ecdsaSecp256R1Sha256,
+        .rsaPssRsaeSha256,
+        .rsaPkcs1Sha256,
+        .ecdsaSecp384R1Sha384,
+        .rsaPssRsaeSha384,
+        .rsaPkcs1Sha384,
+        .rsaPssRsaeSha512,
+        .rsaPkcs1Sha512,
+    ]
+
+    config.decompression = .enabled(limit: .none)
+
 
     // Custom Configs from fork
     config.tlsConfiguration?.grease = true
     config.tlsConfiguration?.signedCertificateTimestamps = true
     config.tlsConfiguration?.ocspStapling = true
+    config.tlsConfiguration?.brotliCertificateCompression = true
 
     return HTTPClient(
         eventLoopGroupProvider: .createNew,
