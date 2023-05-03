@@ -1,7 +1,8 @@
 import Foundation
 import AsyncHTTPClient
-import NIOHTTP1
+import NIO
 import NIOSSL
+import NIOHTTP1
 import NIOFoundationCompat
 import NodeAPI
 
@@ -9,8 +10,13 @@ enum HTTPStreamError: Error {
     case invalidCallback
 }
 
-let httpClient: HTTPClient = {
+let evGroup = MultiThreadedEventLoopGroup(numberOfThreads: System.coreCount)
+
+func makeHTTPClient() -> HTTPClient {
     var config = HTTPClient.Configuration()
+    config.redirectConfiguration = .disallow
+    config.decompression = .enabled(limit: .none)
+
     config.tlsConfiguration = .clientDefault
     config.tlsConfiguration?.cipherSuiteValues = [
         .TLS_AES_128_GCM_SHA256,
@@ -44,8 +50,6 @@ let httpClient: HTTPClient = {
         .rsaPkcs1Sha512,
     ]
 
-    config.decompression = .enabled(limit: .none)
-
     if ProcessInfo.processInfo.environment["NODE_TLS_REJECT_UNAUTHORIZED"] == "0" {
         config.tlsConfiguration?.certificateVerification = .none
     }
@@ -57,10 +61,10 @@ let httpClient: HTTPClient = {
     config.tlsConfiguration?.brotliCertificateCompression = true
 
     return HTTPClient(
-        eventLoopGroupProvider: .createNew,
+        eventLoopGroupProvider: .shared(evGroup),
         configuration: config
     )
-}()
+}
 
 @NodeActor
 func mapToURLRequest(url: String, options: [String: NodeValue]?) throws -> HTTPClientRequest {
@@ -85,7 +89,9 @@ func mapToURLRequest(url: String, options: [String: NodeValue]?) throws -> HTTPC
 
 @main struct SwiftFetch: NodeModule {
     let exports: NodeValueConvertible
+
     let queue: NodeAsyncQueue
+
     init() throws {
         let queue = try NodeAsyncQueue(label: "http-stream-callback-queue")
 
@@ -101,25 +107,25 @@ func mapToURLRequest(url: String, options: [String: NodeValue]?) throws -> HTTPC
 
                 let httpRequest = try mapToURLRequest(url: url, options: options)
                 Task {
-                    let response = try await httpClient.execute(httpRequest, timeout: .seconds(10))
+                    let httpClient = makeHTTPClient()
+                    do {
+                        let response = try await httpClient.execute(httpRequest, timeout: .seconds(10))
 
-                    callback("response", [
-                        "statusCode": Int(response.status.code),
-                        "headers": response.headers.reduce(into: [:]) { (dict, item) in
-                            let key = item.name.lowercased()
-                            if let existingValue = dict[key] {
-                                dict[key] = "\(existingValue), \(item.value)"
-                            } else {
-                                dict[key] = item.value
-                            }
+                        callback("response", [
+                            "statusCode": Int(response.status.code),
+                            "headers": Self.mapHeaders(response.headers)
+                        ])
+
+                        for try await buffer in response.body {
+                            callback("data", Data(buffer: buffer))
                         }
-                    ])
 
-                    for try await buffer in response.body {
-                        callback("data", Data(buffer: buffer))
+                        callback("end", undefined)
+                    } catch {
+                        callback("error", error.localizedDescription)
                     }
 
-                    callback("end", undefined)
+                    try await httpClient.shutdown()
                 }
                 return undefined
             },
@@ -127,24 +133,41 @@ func mapToURLRequest(url: String, options: [String: NodeValue]?) throws -> HTTPC
                 let httpRequest = try mapToURLRequest(url: url, options: options)
 
                 return try NodePromise {
-                    let response = try await httpClient.execute(httpRequest, timeout: .seconds(10))
-                    let byteBuffer = try await response.body.collect(upTo: 1024 * 1024 * 100) // up to 100MB
-                    return [
-                        "body": Data(buffer: byteBuffer),
-                        "statusCode": Int(response.status.code),
-                        "headers": response.headers.reduce(into: [:]) { (dict, item) in
-                            let key = item.name.lowercased()
-                            if let existingValue = dict[key] {
-                                dict[key] = "\(existingValue), \(item.value)"
-                            } else {
-                                dict[key] = item.value
-                            }
-                        }
-                    ]
+                    let httpClient = makeHTTPClient()
+                    do {
+                        let response = try await httpClient.execute(httpRequest, timeout: .seconds(10))
+                        let byteBuffer = try await response.body.collect(upTo: 1024 * 1024 * 100) // up to 100MB
+
+                        try await httpClient.shutdown()
+
+                        return [
+                            "body": Data(buffer: byteBuffer),
+                            "statusCode": Int(response.status.code),
+                            "headers": Self.mapHeaders(response.headers)
+                        ]
+                    } catch {
+                        try await httpClient.shutdown()
+                        throw error
+                    }
                 }
             },
         ]
 
         self.queue = queue
+    }
+
+    static func mapHeaders(_ headers: HTTPHeaders) -> NodeValueConvertible {
+        headers.reduce(into: [:]) { (dict, item) in
+            let key = item.name.lowercased()
+            if let existingValue = dict[key] {
+                if let arrayValue = existingValue as? [String] {
+                    dict[key] = arrayValue + [item.value]
+                } else if let stringValue = existingValue as? String {
+                    dict[key] = [stringValue, item.value]
+                }
+            } else {
+                dict[key] = item.value
+            }
+        }
     }
 }
