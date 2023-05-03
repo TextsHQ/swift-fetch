@@ -63,7 +63,7 @@ test('Response headers', async () => {
   const response = await fetch('https://httpbin.org/response-headers?foo=bar&foo=test&bar=foo')
 
   expect(response.statusCode).toBe(200)
-  expect(response.headers.foo).toBe(['bar', 'test'])
+  expect(response.headers.foo).toStrictEqual(['bar', 'test'])
   expect(response.headers.bar).toBe('foo')
 })
 
