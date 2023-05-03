@@ -121,7 +121,7 @@ test('Request multi-part', async () => {
   })
 
   expect(response_2.body.length).toBeGreaterThan(10000)
-})
+}, 40000)
 
 test('Response binary data', async () => {
   const response = await fetch('https://httpbin.org/image/webp')
@@ -129,4 +129,4 @@ test('Response binary data', async () => {
   expect(response.statusCode).toBe(200)
   expect(response.body?.constructor.name).toBe('Buffer')
   expect(response.body?.length).toBeGreaterThan(10000)
-})
+}, 20000)

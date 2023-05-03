@@ -109,7 +109,7 @@ func mapToURLRequest(url: String, options: [String: NodeValue]?) throws -> HTTPC
                 Task {
                     let httpClient = makeHTTPClient()
                     do {
-                        let response = try await httpClient.execute(httpRequest, timeout: .seconds(10))
+                        let response = try await httpClient.execute(httpRequest, timeout: .seconds(30))
 
                         callback("response", [
                             "statusCode": Int(response.status.code),
@@ -135,7 +135,7 @@ func mapToURLRequest(url: String, options: [String: NodeValue]?) throws -> HTTPC
                 return try NodePromise {
                     let httpClient = makeHTTPClient()
                     do {
-                        let response = try await httpClient.execute(httpRequest, timeout: .seconds(10))
+                        let response = try await httpClient.execute(httpRequest, timeout: .seconds(30))
                         let byteBuffer = try await response.body.collect(upTo: 1024 * 1024 * 100) // up to 100MB
 
                         try await httpClient.shutdown()

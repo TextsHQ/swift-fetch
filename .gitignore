@@ -5,3 +5,4 @@ dist/
 # Swift
 .build
 build/
+Package.resolved
