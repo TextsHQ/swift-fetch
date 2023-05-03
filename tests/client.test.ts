@@ -19,12 +19,13 @@ describe('Compressions', () => {
     expect(response.body.toString().startsWith('{')).toBe(true)
   })
 
-  test('Brotli', async () => {
-    const response = await fetch('https://httpbin.org/brotli')
+  // TODO: add brotli support to swift-nio-extras
+  // test('Brotli', async () => {
+  //   const response = await fetch('https://httpbin.org/brotli')
 
-    expect(response.statusCode).toBe(200)
-    expect(response.body.toString().startsWith('{')).toBe(true)
-  })
+  //   expect(response.statusCode).toBe(200)
+  //   expect(response.body.toString().startsWith('{')).toBe(true)
+  // })
 })
 
 describe('Request methods', () => {
@@ -83,26 +84,25 @@ test('Request form', async () => {
   expect(body.form.foo).toBe('bar')
 })
 
-// TODO: disable redirect in Swift
-// test('Request cookie handling', async () => {
-//   const jar = new CookieJar()
+test('Request cookie handling', async () => {
+  const jar = new CookieJar()
 
-//   const response = await fetch('https://httpbin.org/cookies/set', {
-//     cookieJar: jar,
-//     searchParams: {
-//       foo: 'bar',
-//       lemon: 'juice',
-//       strawberry: 'blueberry',
-//     },
-//   })
+  const response = await fetch('https://httpbin.org/cookies/set', {
+    cookieJar: jar,
+    searchParams: {
+      foo: 'bar',
+      lemon: 'juice',
+      strawberry: 'blueberry',
+    },
+  })
 
-//   expect(response.statusCode).toBe(302)
-//   expect(response.headers['set-cookie']).toHaveLength(3)
+  expect(response.statusCode).toBe(302)
+  expect(response.headers['set-cookie']).toHaveLength(3)
 
-//   const cookieStr = jar.getCookieStringSync('https://httpbin.org')
+  const cookieStr = jar.getCookieStringSync('https://httpbin.org')
 
-//   expect(cookieStr).toHaveLength(42)
-// })
+  expect(cookieStr).toHaveLength(42)
+})
 
 test('Request multi-part', async () => {
   const response = await fetch('https://httpbin.org/image/webp')
