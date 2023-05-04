@@ -9,8 +9,6 @@ enum HTTPStreamError: Error {
     let exports: NodeValueConvertible
 
     init() throws {
-        exports = [
-            "Client": try Client.constructor(),
-        ]
+        exports = try Client.constructor()
     }
 }
