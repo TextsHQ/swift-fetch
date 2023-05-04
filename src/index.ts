@@ -1,26 +1,63 @@
 import { Readable } from 'stream'
-import type { FetchOptions, FetchResponse } from '@textshq/platform-sdk'
 import FormData from 'form-data'
+import type { CookieJar } from 'tough-cookie'
 
 interface SwiftFetchRequestOptions {
-  method?: string
+  method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
   headers?: Record<string, string>
   body?: Buffer
+
+  timeout?: number
+  redirect?: 'follow' | 'manual'
+  follow?: number
+  verifyCertificate?: boolean
 }
 
 type SwiftFetchStreamEvent = 'response' | 'data' | 'end'
 
+interface SwiftFetchClient {
+  new(): SwiftFetchClient
+  request(url: string, options?: SwiftFetchRequestOptions): Promise<FetchResponse<Buffer>>
+  requestStream(url: string, options: SwiftFetchRequestOptions, callback: (event: SwiftFetchStreamEvent, data: Buffer | FetchResponse<null>) => void): Promise<void>
+}
+
 // eslint-disable-next-line global-require
 const SwiftFetch = require('../build/SwiftFetch.node') as {
-  request(url: string, options?: SwiftFetchRequestOptions): Promise<FetchResponse<Buffer>>
-  requestStream(url: string, options: SwiftFetchRequestOptions, callback: (event: SwiftFetchStreamEvent, data: Buffer | FetchResponse<null>) => void): Readable
+  Client: SwiftFetchClient
 }
+
+export interface FetchOptions {
+  method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
+  headers?: Record<string, string>
+  searchParams?: Record<string, number | string>
+  form?: Record<string, number | string>
+  body?: string | Buffer | FormData
+  cookieJar?: CookieJar
+
+  timeout?: number
+  redirect?: 'follow' | 'manual'
+  follow?: number
+  verifyCertificate?: boolean
+}
+
+interface FetchResponse<T> {
+  status: number
+  headers: Record<string, string | string[]>
+  httpVersion?: string
+  body?: T
+}
+
+export const swiftFetchClient = new SwiftFetch.Client()
 
 const fetchOptionsToSwiftFetchOptions = (url: string, options?: FetchOptions): [string, SwiftFetchRequestOptions] => {
   let urlString = url
   const swiftOptions: SwiftFetchRequestOptions = {
     method: options?.method,
     headers: options?.headers,
+    timeout: options?.timeout,
+    redirect: options?.redirect,
+    follow: options?.follow,
+    verifyCertificate: options?.verifyCertificate,
   }
 
   if (options?.cookieJar) {
@@ -28,11 +65,6 @@ const fetchOptionsToSwiftFetchOptions = (url: string, options?: FetchOptions): [
       ...swiftOptions.headers,
       Cookie: options.cookieJar.getCookieStringSync(url),
     }
-  }
-
-  if (options?.body?.constructor.name === 'FormData') {
-    swiftOptions.headers = (options.body as FormData).getHeaders(swiftOptions.headers)
-    swiftOptions.body = (options.body as FormData).getBuffer()
   }
 
   if (options?.form) {
@@ -44,6 +76,15 @@ const fetchOptionsToSwiftFetchOptions = (url: string, options?: FetchOptions): [
 
     swiftOptions.headers = formData.getHeaders(swiftOptions.headers)
     swiftOptions.body = formData.getBuffer()
+  } else if (options?.body?.constructor.name === 'FormData') {
+    swiftOptions.headers = (options.body as FormData).getHeaders(swiftOptions.headers)
+    swiftOptions.body = (options.body as FormData).getBuffer()
+  } else if (typeof options?.body === 'string' || options?.body instanceof String) {
+    swiftOptions.body = Buffer.from(options.body)
+  } else if (Buffer.isBuffer(options?.body)) {
+    swiftOptions.body = options?.body
+  } else if (options?.body) {
+    throw new Error('Invalid body type')
   }
 
   if (options?.searchParams) {
@@ -57,7 +98,7 @@ const fetchOptionsToSwiftFetchOptions = (url: string, options?: FetchOptions): [
 export async function fetch(url: string, options?: FetchOptions): Promise<FetchResponse<Buffer>> {
   const [urlString, swiftOptions] = fetchOptionsToSwiftFetchOptions(url, options)
 
-  const response = await SwiftFetch.request(urlString, swiftOptions)
+  const response = await swiftFetchClient.request(urlString, swiftOptions)
 
   if (Array.isArray(response.headers['set-cookie'])) {
     for (const cookie of response.headers['set-cookie']) {
@@ -77,7 +118,7 @@ export function fetchStream(url: string, options?: FetchOptions): Readable {
     read() {},
   })
 
-  SwiftFetch.requestStream(urlString, swiftOptions, (event: SwiftFetchStreamEvent, data: Buffer | FetchResponse<null>) => {
+  swiftFetchClient.requestStream(urlString, swiftOptions, (event: SwiftFetchStreamEvent, data: Buffer | FetchResponse<null>) => {
     switch (event) {
       case 'response':
         readableStream.emit('response', data as FetchResponse<null>)
@@ -94,21 +135,3 @@ export function fetchStream(url: string, options?: FetchOptions): Readable {
   })
   return readableStream
 }
-
-class Client {
-  async requestAsString(url: string, options?: FetchOptions): Promise<FetchResponse<string>> {
-    const request = await fetch(url, options)
-    const stringifiedBody = request.body?.toString('utf-8')
-
-    return {
-      ...request,
-      body: stringifiedBody,
-    }
-  }
-
-  async requestAsBuffer(url: string, options?: FetchOptions): Promise<FetchResponse<Buffer>> {
-    return fetch(url, options)
-  }
-}
-
-export const createHttpClient = () => new Client()

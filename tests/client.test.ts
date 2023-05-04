@@ -1,44 +1,45 @@
-import { FetchOptions } from '@textshq/platform-sdk'
 import FormData from 'form-data'
 import { CookieJar } from 'tough-cookie'
-import { fetch } from '../src'
+import { fetch, FetchOptions } from '../src'
 
 test('Fetch JSON document', async () => {
   const response = await fetch('https://httpbin.org/json')
 
-  expect(response.statusCode).toBe(200)
+  expect(response.status).toBe(200)
   expect(response.body).toBeDefined()
-  expect(JSON.parse(response.body.toString())).toBeDefined()
+  expect(JSON.parse(response.body!.toString())).toBeDefined()
 })
 
 describe('Compressions', () => {
   test('GZip', async () => {
     const response = await fetch('https://httpbin.org/gzip')
 
-    expect(response.statusCode).toBe(200)
-    expect(response.body.toString().startsWith('{')).toBe(true)
+    expect(response.status).toBe(200)
+    expect(response.body).toBeDefined()
+    expect(response.body!.toString().startsWith('{')).toBe(true)
   })
 
   // TODO: add brotli support to swift-nio-extras
   // test('Brotli', async () => {
   //   const response = await fetch('https://httpbin.org/brotli')
 
-  //   expect(response.statusCode).toBe(200)
-  //   expect(response.body.toString().startsWith('{')).toBe(true)
+  //   expect(response.status).toBe(200)
+  //   expect(response.body).toBeDefined()
+  //   expect(response.body!.toString().startsWith('{')).toBe(true)
   // })
 })
 
 describe('Request methods', () => {
-  const methods = ['GET', 'POST', 'PATCH', 'PUT', 'DELETE']
+  const methods: FetchOptions['method'][] = ['GET', 'POST', 'PATCH', 'PUT', 'DELETE']
 
   for (const method of methods) {
     // eslint-disable-next-line @typescript-eslint/no-loop-func
-    test(method, async () => {
-      const response = await fetch(`https://httpbin.org/${method.toLowerCase()}`, {
-        method: (method as FetchOptions['method']),
+    test(method as string, async () => {
+      const response = await fetch(`https://httpbin.org/${method!.toLowerCase()}`, {
+        method,
       })
 
-      expect(response.statusCode).toBe(200)
+      expect(response.status).toBe(200)
     })
   }
 })
@@ -51,9 +52,11 @@ test('Request headers', async () => {
     },
   })
 
-  expect(response.statusCode).toBe(200)
+  expect(response.status).toBe(200)
 
-  const body = JSON.parse(response.body.toString())
+  expect(response.body).toBeDefined()
+
+  const body = JSON.parse(response.body!.toString())
 
   expect(body.headers.Foo).toBe('bar')
   expect(body.headers.Lemon).toBe('strawberry')
@@ -62,7 +65,7 @@ test('Request headers', async () => {
 test('Response headers', async () => {
   const response = await fetch('https://httpbin.org/response-headers?foo=bar&foo=test&bar=foo')
 
-  expect(response.statusCode).toBe(200)
+  expect(response.status).toBe(200)
   expect(response.headers.foo).toStrictEqual(['bar', 'test'])
   expect(response.headers.bar).toBe('foo')
 })
@@ -76,9 +79,10 @@ test('Request form', async () => {
     },
   })
 
-  expect(response.statusCode).toBe(200)
+  expect(response.status).toBe(200)
+  expect(response.body).toBeDefined()
 
-  const body = JSON.parse(response.body.toString())
+  const body = JSON.parse(response.body!.toString())
 
   expect(body.form.foo).toBe('bar')
 })
@@ -95,7 +99,7 @@ test('Request cookie handling', async () => {
     },
   })
 
-  expect(response.statusCode).toBe(302)
+  expect(response.status).toBe(302)
   expect(response.headers['set-cookie']).toHaveLength(3)
 
   const cookieStr = jar.getCookieStringSync('https://httpbin.org')
@@ -106,9 +110,9 @@ test('Request cookie handling', async () => {
 test('Request multi-part', async () => {
   const response = await fetch('https://httpbin.org/image/webp')
 
-  expect(response.statusCode).toBe(200)
+  expect(response.status).toBe(200)
   expect(response.body?.constructor.name).toBe('Buffer')
-  expect(response.body.length).toBeGreaterThan(10000)
+  expect(response.body!.length).toBeGreaterThan(10000)
 
   const form = new FormData()
 
@@ -120,13 +124,14 @@ test('Request multi-part', async () => {
     body: form,
   })
 
-  expect(response_2.body.length).toBeGreaterThan(10000)
+  expect(response_2.body).toBeDefined()
+  expect(response_2.body!.length).toBeGreaterThan(10000)
 }, 40000)
 
 test('Response binary data', async () => {
   const response = await fetch('https://httpbin.org/image/webp')
 
-  expect(response.statusCode).toBe(200)
+  expect(response.status).toBe(200)
   expect(response.body?.constructor.name).toBe('Buffer')
   expect(response.body?.length).toBeGreaterThan(10000)
 }, 20000)

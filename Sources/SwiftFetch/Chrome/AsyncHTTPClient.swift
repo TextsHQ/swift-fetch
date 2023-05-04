@@ -30,7 +30,7 @@ final class Client: NodeClass {
             let byteBuffer = try await response.body.collect(upTo: 1024 * 1024 * 100) // up to 100MB
 
             return await [
-                "statusCode": Int(response.status.code),
+                "status": Int(response.status.code),
                 "headers": Self.mapHeaders(response.headers),
                 "httpVersion": "http/\(response.version.major).\(response.version.minor)",
                 "body": Data(buffer: byteBuffer),
@@ -49,7 +49,7 @@ final class Client: NodeClass {
 
         return try await Self.internalRequest(url: url, options: options) { response in
             await callback("response", [
-                "statusCode": Int(response.status.code),
+                "status": Int(response.status.code),
                 "headers": Self.mapHeaders(response.headers),
                 "httpVersion": "http/\(response.version.major).\(response.version.minor)",
             ])
