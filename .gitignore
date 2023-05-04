@@ -6,3 +6,6 @@ dist/
 .build
 build/
 Package.resolved
+
+# misc
+.DS_Store
