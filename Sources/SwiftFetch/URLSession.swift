@@ -1,4 +1,4 @@
-#if os(iOS)
+#if USE_URLSESSION || os(iOS)
 import Foundation
 import NodeAPI
 

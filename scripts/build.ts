@@ -37,6 +37,11 @@ async function runAndCapture(command: string, args: readonly string[], options: 
     linkerFlags.push('--gc-sections')
   }
 
+  if (process.argv.find(arg => arg.startsWith('--use-urlsession'))) {
+    swiftFlags.push('-DUSE_URLSESSION')
+    process.env.USE_URLSESSION = '1'
+  }
+
   const binaryPath = await build(isDebug ? 'debug' : 'release', {
     swiftFlags,
     cFlags,
@@ -50,6 +55,7 @@ async function runAndCapture(command: string, args: readonly string[], options: 
 
   if (osPlatform === 'darwin') {
     await runAndCapture('strip', ['-ur', realBinaryPath])
+    await runAndCapture('codesign', ['-fs', '-', realBinaryPath])
   } else if (osPlatform === 'linux') {
     await runAndCapture('strip', [realBinaryPath])
   }

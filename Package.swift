@@ -28,7 +28,7 @@ let package = Package(
 )
 
 // We only include these dependencies on non-ios platforms otherwise it still gets linked
-if ProcessInfo.processInfo.environment["NODESWIFT_PLATFORM"] != "iphoneos" {
+if ProcessInfo.processInfo.environment["NODESWIFT_PLATFORM"] != "iphoneos" && ProcessInfo.processInfo.environment["USE_URLSESSION"] != "1" {
     package.targets[0].dependencies.append(contentsOf: [
         .product(name: "NIOFoundationCompat", package: "swift-nio"),
         .product(name: "AsyncHTTPClient", package: "async-http-client"),

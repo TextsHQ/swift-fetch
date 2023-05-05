@@ -1,4 +1,4 @@
-#if os(macOS) || os(Linux)
+#if !USE_URLSESSION && (os(macOS) || os(Linux))
 /**
   * Configured to spoof chrome
   */
