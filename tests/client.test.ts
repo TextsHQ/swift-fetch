@@ -59,7 +59,7 @@ test('Request headers', async () => {
   expect(response.body).toBeDefined()
 
   const body = JSON.parse(response.body!.toString())
-  console.log(response, body)
+
   expect(body.headers.Foo).toBe('bar')
   expect(body.headers.Lemon).toBe('strawberry')
 })
