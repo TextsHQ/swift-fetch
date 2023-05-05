@@ -20,7 +20,7 @@ async function runAndCapture(command: string, args: readonly string[], options: 
 }
 
 (async () => {
-  const swiftFlags = ['-Osize', '-wmo']
+  const swiftFlags = ['-Osize', '-whole-module-optimization']
   const cFlags = ['-Os', '-ffunction-sections', '-fdata-sections']
   const linkerFlags = [] as unknown as [string]
 
@@ -43,7 +43,11 @@ async function runAndCapture(command: string, args: readonly string[], options: 
     linkerFlags,
   })
 
+  // we don't want to strip on debug builds
+  if (isDebug) return
+
   const realBinaryPath = await fs.realpath(binaryPath)
+
   if (osPlatform === 'darwin') {
     await runAndCapture('strip', ['-ur', realBinaryPath])
   } else if (osPlatform === 'linux') {

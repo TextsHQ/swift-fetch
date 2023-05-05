@@ -5,7 +5,7 @@
 // TODO: add windows support
 import Foundation
 import NodeAPI
-import NIOPosix
+import NIO
 import NIOSSL
 import NIOHTTP1
 import NIOFoundationCompat
