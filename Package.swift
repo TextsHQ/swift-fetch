@@ -22,9 +22,15 @@ let package = Package(
             name: "SwiftFetch",
             dependencies: [
                 .product(name: "NodeAPI", package: "node-swift"),
-                .product(name: "NIOFoundationCompat", package: "swift-nio"),
-                .product(name: "AsyncHTTPClient", package: "async-http-client"),
             ]
         )
     ]
 )
+
+// We only include these dependencies on non-ios platforms otherwise it still gets linked
+if ProcessInfo.processInfo.environment["NODESWIFT_PLATFORM"] != "iphoneos" {
+    package.targets[0].dependencies.append(contentsOf: [
+        .product(name: "NIOFoundationCompat", package: "swift-nio"),
+        .product(name: "AsyncHTTPClient", package: "async-http-client"),
+    ])
+}

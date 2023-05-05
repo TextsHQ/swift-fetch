@@ -1,8 +1,9 @@
 import Foundation
 import NodeAPI
 
-enum HTTPStreamError: Error {
+enum SwiftFetchError: Error {
     case invalidCallback
+    case unimplemented
 }
 
 @main struct SwiftFetch: NodeModule {
