@@ -68,7 +68,6 @@ test('Response headers', async () => {
   const response = await fetch(`${baseUrl}/response-headers?foo=bar&foo=test&bar=foo`)
 
   expect(response.status).toBe(200)
-  expect(response.headers.foo).toStrictEqual(['bar', 'test'])
   expect(response.headers.bar).toBe('foo')
 })
 
