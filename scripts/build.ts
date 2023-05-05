@@ -1,5 +1,6 @@
-import { spawn, SpawnOptions } from 'child_process'
 import os from 'os'
+import fs from 'fs/promises'
+import { spawn, SpawnOptions } from 'child_process'
 import { build } from 'node-swift'
 
 const isDebug = process.env.NODE_ENV === 'development' || process.argv.includes('--debug')
@@ -19,8 +20,8 @@ async function runAndCapture(command: string, args: readonly string[], options: 
 }
 
 (async () => {
-  const swiftFlags = [] as unknown as [string]
-  const cFlags = [] as unknown as [string]
+  const swiftFlags = ['-Osize', '-wmo']
+  const cFlags = ['-Os', '-ffunction-sections', '-fdata-sections']
   const linkerFlags = [] as unknown as [string]
 
   const osPlatform = os.platform()
@@ -31,15 +32,21 @@ async function runAndCapture(command: string, args: readonly string[], options: 
     const sdkPath = await (await runAndCapture('xcrun', ['-sdk', platform, '-show-sdk-path'])).trimEnd()
     swiftFlags.push('-sdk', sdkPath, '-target', target)
     cFlags.push('-isysroot', sdkPath, '-target', target)
+    linkerFlags.push('-dead_strip', '-dead_strip_dylibs')
   } else if (osPlatform === 'linux') {
-    cFlags.push('-Os', '-ffunction-sections', '-fdata-sections')
-    swiftFlags.push('-Osize', '-wmo')
     linkerFlags.push('--gc-sections')
   }
 
-  await build(isDebug ? 'debug' : 'release', {
+  const binaryPath = await build(isDebug ? 'debug' : 'release', {
     swiftFlags,
     cFlags,
     linkerFlags,
   })
+
+  const realBinaryPath = await fs.realpath(binaryPath)
+  if (osPlatform === 'darwin') {
+    await runAndCapture('strip', ['-ur', realBinaryPath])
+  } else if (osPlatform === 'linux') {
+    await runAndCapture('strip', [realBinaryPath])
+  }
 })()

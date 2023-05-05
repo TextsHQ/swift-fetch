@@ -2,10 +2,10 @@
 /**
   * Configured to spoof chrome
   */
-// TODO: add windows and linux support
+// TODO: add windows support
 import Foundation
 import NodeAPI
-import NIO
+import NIOPosix
 import NIOSSL
 import NIOHTTP1
 import NIOFoundationCompat
