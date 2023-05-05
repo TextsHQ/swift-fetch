@@ -2,8 +2,10 @@ import FormData from 'form-data'
 import { CookieJar } from 'tough-cookie'
 import { fetch, FetchOptions } from '../src'
 
+const baseUrl = 'https://httpbin.org'
+
 test('Fetch JSON document', async () => {
-  const response = await fetch('https://httpbin.org/json')
+  const response = await fetch(`${baseUrl}/json`)
 
   expect(response.status).toBe(200)
   expect(response.body).toBeDefined()
@@ -12,7 +14,7 @@ test('Fetch JSON document', async () => {
 
 describe('Compressions', () => {
   test('GZip', async () => {
-    const response = await fetch('https://httpbin.org/gzip')
+    const response = await fetch(`${baseUrl}/gzip`)
 
     expect(response.status).toBe(200)
     expect(response.body).toBeDefined()
@@ -21,7 +23,7 @@ describe('Compressions', () => {
 
   // TODO: add brotli support to swift-nio-extras
   // test('Brotli', async () => {
-  //   const response = await fetch('https://httpbin.org/brotli')
+  //   const response = await fetch(`${baseUrl}/brotli`)
 
   //   expect(response.status).toBe(200)
   //   expect(response.body).toBeDefined()
@@ -35,7 +37,7 @@ describe('Request methods', () => {
   for (const method of methods) {
     // eslint-disable-next-line @typescript-eslint/no-loop-func
     test(method as string, async () => {
-      const response = await fetch(`https://httpbin.org/${method!.toLowerCase()}`, {
+      const response = await fetch(`${baseUrl}/${method!.toLowerCase()}`, {
         method,
       })
 
@@ -45,7 +47,7 @@ describe('Request methods', () => {
 })
 
 test('Request headers', async () => {
-  const response = await fetch('https://httpbin.org/headers', {
+  const response = await fetch(`${baseUrl}/headers`, {
     headers: {
       foo: 'bar',
       lemon: 'strawberry',
@@ -57,13 +59,13 @@ test('Request headers', async () => {
   expect(response.body).toBeDefined()
 
   const body = JSON.parse(response.body!.toString())
-
+  console.log(response, body)
   expect(body.headers.Foo).toBe('bar')
   expect(body.headers.Lemon).toBe('strawberry')
 })
 
 test('Response headers', async () => {
-  const response = await fetch('https://httpbin.org/response-headers?foo=bar&foo=test&bar=foo')
+  const response = await fetch(`${baseUrl}/response-headers?foo=bar&foo=test&bar=foo`)
 
   expect(response.status).toBe(200)
   expect(response.headers.foo).toStrictEqual(['bar', 'test'])
@@ -71,7 +73,7 @@ test('Response headers', async () => {
 })
 
 test('Request form', async () => {
-  const response = await fetch('https://httpbin.org/post', {
+  const response = await fetch(`${baseUrl}/post`, {
     method: 'POST',
     form: {
       foo: 'bar',
@@ -90,7 +92,7 @@ test('Request form', async () => {
 test('Request cookie handling', async () => {
   const jar = new CookieJar()
 
-  const response = await fetch('https://httpbin.org/cookies/set', {
+  const response = await fetch(`${baseUrl}/cookies/set`, {
     cookieJar: jar,
     searchParams: {
       foo: 'bar',
@@ -102,13 +104,13 @@ test('Request cookie handling', async () => {
   expect(response.status).toBe(302)
   expect(response.headers['set-cookie']).toHaveLength(3)
 
-  const cookieStr = jar.getCookieStringSync('https://httpbin.org')
+  const cookieStr = jar.getCookieStringSync(`${baseUrl}`)
 
   expect(cookieStr).toHaveLength(42)
-})
+}, 60000)
 
 test('Request multi-part', async () => {
-  const response = await fetch('https://httpbin.org/image/webp')
+  const response = await fetch(`${baseUrl}/image/webp`)
 
   expect(response.status).toBe(200)
   expect(response.body?.constructor.name).toBe('Buffer')
@@ -119,7 +121,7 @@ test('Request multi-part', async () => {
   form.append('foo', 'bar')
   form.append('blizzy', response.body)
 
-  const response_2 = await fetch('https://httpbin.org/anything', {
+  const response_2 = await fetch(`${baseUrl}/anything`, {
     method: 'POST',
     body: form,
   })
@@ -129,7 +131,7 @@ test('Request multi-part', async () => {
 }, 40000)
 
 test('Response binary data', async () => {
-  const response = await fetch('https://httpbin.org/image/webp')
+  const response = await fetch(`${baseUrl}/image/webp`)
 
   expect(response.status).toBe(200)
   expect(response.body?.constructor.name).toBe('Buffer')
