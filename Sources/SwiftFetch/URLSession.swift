@@ -114,7 +114,7 @@ final class Client: NodeClass {
         return [
             "body": data,
             "status": httpUrlResponse.statusCode,
-            "headers": try mapHeaders(httpUrlResponse.allHeaderFields)
+            "headers": mapHeaders(httpUrlResponse.allHeaderFields)
         ]
     }
 
@@ -136,7 +136,7 @@ final class Client: NodeClass {
             if event == "response", let response = data as? HTTPURLResponse {
                 callback("response", [
                     "status": response.statusCode,
-                    "headers": try mapHeaders(response.allHeaderFields)
+                    "headers": mapHeaders(response.allHeaderFields)
                 ])
             } else if event == "data", let data = data as? Data {
                 callback("data", data)
@@ -148,8 +148,8 @@ final class Client: NodeClass {
         return undefined
     }
 
-    func mapHeaders(_ headers: [AnyHashable: Any]) throws -> NodeValueConvertible {
-        try headers.reduce(into: [:]) { (dict, item) in
+    func mapHeaders(_ headers: [AnyHashable: Any]) -> NodeValueConvertible {
+        headers.reduce(into: [:]) { (dict, item) in
             guard let key = item.key as? String, let value = item.value as? String else {
                 return
             }
@@ -158,12 +158,7 @@ final class Client: NodeClass {
                 if cookies.count == 1 {
                     dict[key.lowercased()] = cookies[0]
                 } else {
-                    // swift complains when using the array directly
-                    let nodeArray = try NodeArray(capacity: cookies.count)
-                    for i in 0..<cookies.count {
-                        try nodeArray[i].set(to: cookies[i])
-                    }
-                    dict[key.lowercased()] = nodeArray
+                    dict[key.lowercased()] = cookies as [NodeValueConvertible]
                 }
             } else {
                 dict[key] = value
