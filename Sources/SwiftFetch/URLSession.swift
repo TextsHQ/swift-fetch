@@ -17,11 +17,7 @@ fileprivate class TaskDelegate: NSObject, URLSessionTaskDelegate {
         newRequest request: URLRequest,
         completionHandler: @escaping @Sendable (URLRequest?) -> Void
     ) {
-        if followRedirect {
-            completionHandler(request)
-        } else {
-            completionHandler(nil)
-        }
+        completionHandler(followRedirect ? request : nil)
     }
 }
 
@@ -84,11 +80,7 @@ class HTTPStream: NSObject, URLSessionDataDelegate, URLSessionTaskDelegate {
         newRequest request: URLRequest,
         completionHandler: @escaping @Sendable (URLRequest?) -> Void
     ) {
-        if followRedirect {
-            completionHandler(request)
-        } else {
-            completionHandler(nil)
-        }
+        completionHandler(followRedirect ? request : nil)
     }
 }
 
