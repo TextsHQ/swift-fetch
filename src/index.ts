@@ -13,7 +13,7 @@ interface SwiftFetchRequestOptions {
   verifyCertificate?: boolean
 }
 
-type SwiftFetchStreamEvent = 'response' | 'data' | 'end'
+type SwiftFetchStreamEvent = 'response' | 'data' | 'end' | 'error'
 
 interface SwiftFetchClient {
   new(): SwiftFetchClient
@@ -41,7 +41,6 @@ export interface FetchOptions {
 interface FetchResponse<T> {
   status: number
   headers: Record<string, string | string[]>
-  httpVersion?: string
   body?: T
 }
 
@@ -126,6 +125,9 @@ export function fetchStream(url: string, options?: FetchOptions): Readable {
         break
       case 'end':
         readableStream.push(null)
+        break
+      case 'error':
+        readableStream.emit('error', data)
         break
       default:
         break

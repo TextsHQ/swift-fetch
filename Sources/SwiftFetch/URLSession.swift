@@ -32,6 +32,66 @@ extension String {
     }
 }
 
+class HTTPStream: NSObject, URLSessionDataDelegate, URLSessionTaskDelegate {
+    typealias CallbackArguments = (event: String, data: Any)
+
+    private var callback: ((String, Any) -> Void)? = nil
+
+    public var stream: AsyncStream<CallbackArguments>!
+
+    public var dataTask: URLSessionDataTask!
+
+    let followRedirect: Bool
+
+    public init(request: URLRequest, followRedirect: Bool) {
+        self.followRedirect = followRedirect
+        super.init()
+        stream = AsyncStream<CallbackArguments> { continuation in
+            self.callback = { event, data in
+                if event == "end" {
+                    continuation.finish()
+                } else {
+                    continuation.yield((event, data))
+                }
+            }
+        }
+        dataTask = URLSession.shared.dataTask(with: request)
+        dataTask.delegate = self
+        dataTask.resume()
+    }
+
+    func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
+        callback?("data", data)
+    }
+
+    func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive response: URLResponse, completionHandler: @escaping (URLSession.ResponseDisposition) -> Void) {
+        callback?("response", response)
+        completionHandler(.allow)
+    }
+
+    func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
+        if let error {
+            callback?("error", error)
+        } else {
+            callback?("end", undefined)
+        }
+    }
+
+    func urlSession(
+        _ session: URLSession,
+        task: URLSessionTask,
+        willPerformHTTPRedirection response: HTTPURLResponse,
+        newRequest request: URLRequest,
+        completionHandler: @escaping @Sendable (URLRequest?) -> Void
+    ) {
+        if followRedirect {
+            completionHandler(request)
+        } else {
+            completionHandler(nil)
+        }
+    }
+}
+
 final class Client: NodeClass {
     public static var properties: NodeClassPropertyList = [
         "request": NodeMethod(request),
@@ -67,7 +127,33 @@ final class Client: NodeClass {
     }
 
     public func requestStream(url: String, options: [String: NodeValue]?, callbackFn: NodeFunction) async throws -> NodeValueConvertible {
-        throw SwiftFetchError.unimplemented
+        let callback = { [queue] (event, data) in
+            do {
+                try queue.run { _ = try callbackFn(event, data) }
+            } catch {
+                print("\(error)")
+            }
+        }
+
+        let httpStream = try HTTPStream(
+            request: mapToURLRequest(url: URL(string: url)!, options: options),
+            followRedirect: false
+        )
+
+        for await (event, data) in httpStream.stream {
+            if event == "response", let response = data as? HTTPURLResponse {
+                callback("response", [
+                    "status": response.statusCode,
+                    "headers": try mapHeaders(response.allHeaderFields)
+                ])
+            } else if event == "data", let data = data as? Data {
+                callback("data", data)
+            } else if event == "error", let error = data as? Error {
+                callback("error", String(describing: error))
+            }
+        }
+        callback("end", undefined)
+        return undefined
     }
 
     func mapHeaders(_ headers: [AnyHashable: Any]) throws -> NodeValueConvertible {
