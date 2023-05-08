@@ -1,5 +1,6 @@
 import os from 'os'
 import fs from 'fs/promises'
+import { join } from 'path'
 import { spawn, SpawnOptions } from 'child_process'
 import { build } from 'node-swift'
 
@@ -20,6 +21,11 @@ async function runAndCapture(command: string, args: readonly string[], options: 
 }
 
 (async () => {
+  if (process.argv.includes('--clean')) {
+    await fs.rm(join(__dirname, '..', 'build'), { recursive: true, force: true })
+    await fs.unlink(join(__dirname, '..', 'node_modules', 'node-swift', 'NodeSwiftHost', 'Package.resolved'))
+  }
+
   const swiftFlags = ['-Osize', '-whole-module-optimization']
   const cFlags = ['-Os', '-ffunction-sections', '-fdata-sections']
   const linkerFlags = [] as unknown as [string]
@@ -37,7 +43,7 @@ async function runAndCapture(command: string, args: readonly string[], options: 
     linkerFlags.push('--gc-sections')
   }
 
-  if (process.argv.find(arg => arg.startsWith('--use-urlsession'))) {
+  if (process.argv.includes('--use-urlsession')) {
     swiftFlags.push('-DUSE_URLSESSION')
     process.env.USE_URLSESSION = '1'
   }
