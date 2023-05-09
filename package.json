@@ -9,11 +9,12 @@
     "build": "tsc && ts-node scripts/build.ts",
     "build-ts": "tsc",
     "build-swift": "ts-node scripts/build.ts",
-    "postinstall": "yarn build --clean",
+    "postinstall": "tsc",
     "rebuild": "yarn build --clean",
     "test": "jest"
   },
   "dependencies": {
+    "@types/tough-cookie": "^4.0.2",
     "form-data": "^4.0.0",
     "node-swift": "https://github.com/kabiroberai/node-swift#master",
     "tough-cookie": "^4.1.2"
@@ -25,7 +26,6 @@
     "@textshq/eslint-config": "https://github.com/TextsHQ/eslint-config#main",
     "@types/jest": "^29.5.1",
     "@types/node": "^18.16.2",
-    "@types/tough-cookie": "^4.0.2",
     "@typescript-eslint/eslint-plugin": "^5.0.0",
     "@typescript-eslint/parser": "^5.0.0",
     "eslint": "^8.39.0",
