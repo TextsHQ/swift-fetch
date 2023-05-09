@@ -44,7 +44,7 @@ export interface FetchResponse<T> {
   body?: T
 }
 
-export const swiftFetchClient = new SwiftFetch()
+const swiftFetchClient = new SwiftFetch()
 
 const fetchOptionsToSwiftFetchOptions = (url: string, options?: FetchOptions): [string, SwiftFetchRequestOptions] => {
   let urlString = url
