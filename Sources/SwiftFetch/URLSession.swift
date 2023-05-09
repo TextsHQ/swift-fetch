@@ -105,10 +105,12 @@ final class Client: NodeClass {
     }
 
     public func request(url: String, options: [String: NodeValue]?) async throws -> NodeValueConvertible {
+        let followRedirect = (try? options?["redirect"]?.as(String.self)) == "follow"
         let (data, response) = try await urlSession.data(
             for: mapToURLRequest(url: URL(string: url)!, options: options),
-            delegate: TaskDelegate(followRedirect: false)
+            delegate: TaskDelegate(followRedirect: followRedirect)
         )
+
         let httpUrlResponse = response as! HTTPURLResponse
 
         return [
@@ -127,9 +129,11 @@ final class Client: NodeClass {
             }
         }
 
+        let followRedirect = (try? options?["redirect"]?.as(String.self)) == "follow"
+
         let httpStream = try HTTPStream(
             request: mapToURLRequest(url: URL(string: url)!, options: options),
-            followRedirect: false
+            followRedirect: followRedirect
         )
 
         for await (event, data) in httpStream.stream {
