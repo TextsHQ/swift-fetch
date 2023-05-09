@@ -2,7 +2,7 @@ import FormData from 'form-data'
 import { CookieJar } from 'tough-cookie'
 import { fetch, FetchOptions } from '../src'
 
-const baseUrl = 'https://httpbin.org'
+const baseUrl = 'https://httpbin.1conan.com'
 
 test('Fetch JSON document', async () => {
   const response = await fetch(`${baseUrl}/json`)
