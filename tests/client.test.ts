@@ -109,7 +109,7 @@ test.concurrent('Request cookie handling', async () => {
   const cookieStr = jar.getCookieStringSync(`${baseUrl}`)
 
   expect(cookieStr).toHaveLength(42)
-}, 60000)
+})
 
 test.concurrent('Request multi-part', async () => {
   const response = await fetch(`${baseUrl}/image/webp`)
@@ -130,7 +130,7 @@ test.concurrent('Request multi-part', async () => {
 
   expect(response_2.body).toBeDefined()
   expect(response_2.body!.length).toBeGreaterThan(10000)
-}, 40000)
+})
 
 test.concurrent('Response binary data', async () => {
   const response = await fetch(`${baseUrl}/image/webp`)
@@ -138,9 +138,9 @@ test.concurrent('Response binary data', async () => {
   expect(response.status).toBe(200)
   expect(response.body?.constructor.name).toBe('Buffer')
   expect(response.body?.length).toBeGreaterThan(10000)
-}, 20000)
+})
 
-describe('image streaming', () => {
+describe('Image Streaming', () => {
   const imagesWithHashes = [
     ['webp', '567cfaf94ebaf279cea4eb0bc05c4655021fb4ee004aca52c096709d3ba87a63'],
     ['jpeg', 'c028d7aa15e851b0eefb31638a1856498a237faf1829050832d3b9b19f9ab75f'],
