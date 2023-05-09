@@ -32,7 +32,6 @@ final class Client: NodeClass {
             return await [
                 "status": Int(response.status.code),
                 "headers": Self.mapHeaders(response.headers),
-                "httpVersion": "http/\(response.version.major).\(response.version.minor)",
                 "body": Data(buffer: byteBuffer),
             ]
         }
@@ -51,11 +50,16 @@ final class Client: NodeClass {
             await callback("response", [
                 "status": Int(response.status.code),
                 "headers": Self.mapHeaders(response.headers),
-                "httpVersion": "http/\(response.version.major).\(response.version.minor)",
             ])
 
-            for try await buffer in response.body {
-                callback("data", Data(buffer: buffer))
+            do {
+                for try await buffer in response.body {
+                    callback("data", Data(buffer: buffer))
+                }
+            } catch {
+                print("requestStream error \(error)")
+                callback("error", String(describing: error))
+                throw error
             }
 
             callback("end", undefined)
@@ -69,8 +73,6 @@ final class Client: NodeClass {
         options: [String: NodeValue]?,
         completion: @Sendable @escaping (_ response: HTTPClientResponse) async throws -> T
     ) async throws -> T {
-        let request = try Self.mapToURLRequest(url: url, options: options)
-
         let timeout = (try? options?["timeout"]?.as(Int.self)) ?? 30
         let followRedirect = (try? options?["redirect"]?.as(String.self)) == "follow"
         let maxRedirects = (try? options?["follow"]?.as(Int.self)) ?? 20
@@ -79,14 +81,13 @@ final class Client: NodeClass {
         let httpClient = Self.makeHTTPClient(verifyCertificate: verifyCertificate, followRedirect: followRedirect, maxRedirects: maxRedirects)
 
         do {
+            let request = try Self.mapToURLRequest(url: url, options: options)
             let response = try await httpClient.execute(request, timeout: .seconds(Int64(timeout)))
             let data = try await completion(response)
 
-            try await httpClient.shutdown()
-
             return data
         } catch {
-            try await httpClient.shutdown()
+            print("internalRequest error \(error)")
             throw error
         }
     }
@@ -128,6 +129,7 @@ final class Client: NodeClass {
 
     static func makeHTTPClient(verifyCertificate: Bool = true, followRedirect: Bool = false, maxRedirects: Int = 20) -> HTTPClient {
         var config = HTTPClient.Configuration()
+
         if !followRedirect {
             config.redirectConfiguration = .disallow
         } else {
@@ -158,7 +160,6 @@ final class Client: NodeClass {
         config.tlsConfiguration?.minimumTLSVersion = .tlsv12
         config.tlsConfiguration?.maximumTLSVersion = .tlsv13
         config.tlsConfiguration?.applicationProtocols = ["h2", "http/1.1"]
-        config.tlsConfiguration?.renegotiationSupport = .explicit
         config.tlsConfiguration?.verifySignatureAlgorithms = [
             .ecdsaSecp256R1Sha256,
             .rsaPssRsaeSha256,
@@ -179,7 +180,7 @@ final class Client: NodeClass {
         config.tlsConfiguration?.signedCertificateTimestamps = true
         config.tlsConfiguration?.ocspStapling = true
         config.tlsConfiguration?.brotliCertificateCompression = true
-
+        config.tlsConfiguration?.renegotiationSupport = .explicit
 
         return HTTPClient(
             eventLoopGroupProvider: .shared(eventLoopGroup),
