@@ -1,6 +1,9 @@
+import crypto from 'crypto'
 import FormData from 'form-data'
 import { CookieJar } from 'tough-cookie'
-import { fetch, FetchOptions } from '../src'
+import type { Readable } from 'stream'
+
+import { fetch, FetchOptions, FetchResponse, fetchStream } from '../src'
 
 const baseUrl = 'https://httpbin.1conan.com'
 
@@ -136,3 +139,46 @@ test('Response binary data', async () => {
   expect(response.body?.constructor.name).toBe('Buffer')
   expect(response.body?.length).toBeGreaterThan(10000)
 }, 20000)
+
+describe('image streaming', () => {
+  const imagesWithHashes = [
+    ['webp', '567cfaf94ebaf279cea4eb0bc05c4655021fb4ee004aca52c096709d3ba87a63'],
+    ['jpeg', 'c028d7aa15e851b0eefb31638a1856498a237faf1829050832d3b9b19f9ab75f'],
+    ['png', '541a1ef5373be3dc49fc542fd9a65177b664aec01c8d8608f99e6ec95577d8c1'],
+  ]
+
+  const streamToBuffer = (stream: Readable) => new Promise<[FetchResponse<null>, Buffer]>((resolve, reject) => {
+    const chunks: Buffer[] = []
+    let response: FetchResponse<null>
+
+    stream.on('response', (res: FetchResponse<null>) => {
+      response = res
+    })
+
+    stream.on('data', (chunk: Buffer) => {
+      chunks.push(chunk)
+    })
+
+    stream.on('end', () => {
+      resolve([response, Buffer.concat(chunks)])
+    })
+
+    stream.on('error', (err: Error) => {
+      reject(err)
+    })
+  })
+
+  for (const [imageType, hash] of imagesWithHashes) {
+    // eslint-disable-next-line @typescript-eslint/no-loop-func
+    test(imageType, async () => {
+      const stream = fetchStream(`${baseUrl}/image/${imageType}`)
+
+      const [response, buffer] = await streamToBuffer(stream)
+
+      const bufferHash = crypto.createHash('sha256').update(buffer).digest('hex')
+
+      expect(bufferHash).toBe(hash)
+      expect(response.status).toBe(200)
+    })
+  }
+})

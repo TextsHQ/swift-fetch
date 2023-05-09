@@ -38,7 +38,7 @@ export interface FetchOptions {
   verifyCertificate?: boolean
 }
 
-interface FetchResponse<T> {
+export interface FetchResponse<T> {
   status: number
   headers: Record<string, string | string[]>
   body?: T
