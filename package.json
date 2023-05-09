@@ -6,9 +6,11 @@
   "license": "UNLICENSED",
   "private": true,
   "scripts": {
-    "build": "ts-node scripts/build.ts && tsc",
+    "build": "tsc && ts-node scripts/build.ts",
     "build-ts": "tsc",
     "build-swift": "ts-node scripts/build.ts",
+    "postinstall": "yarn build --clean",
+    "rebuild": "yarn build --clean",
     "test": "jest"
   },
   "dependencies": {
