@@ -22,8 +22,10 @@ async function runAndCapture(command: string, args: readonly string[], options: 
 
 (async () => {
   if (process.argv.includes('--clean')) {
-    await fs.rm(join(__dirname, '..', 'build'), { recursive: true, force: true })
-    await fs.unlink(join(__dirname, '..', 'node_modules', 'node-swift', 'NodeSwiftHost', 'Package.resolved'))
+    try {
+      await fs.rm(join(__dirname, '..', 'build'), { recursive: true, force: true })
+      await fs.unlink(join(__dirname, '..', 'node_modules', 'node-swift', 'NodeSwiftHost', 'Package.resolved'))
+    } catch { /* empty */ }
   }
 
   const swiftFlags = ['-Osize', '-whole-module-optimization']
