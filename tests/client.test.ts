@@ -7,7 +7,7 @@ import { fetch, FetchOptions, FetchResponse, fetchStream } from '../src'
 
 const baseUrl = 'https://httpbin.1conan.com'
 
-test('Fetch JSON document', async () => {
+test.concurrent('Fetch JSON document', async () => {
   const response = await fetch(`${baseUrl}/json`)
 
   expect(response.status).toBe(200)
@@ -16,7 +16,7 @@ test('Fetch JSON document', async () => {
 })
 
 describe('Compressions', () => {
-  test('GZip', async () => {
+  test.concurrent('GZip', async () => {
     const response = await fetch(`${baseUrl}/gzip`)
 
     expect(response.status).toBe(200)
@@ -25,7 +25,7 @@ describe('Compressions', () => {
   })
 
   // TODO: add brotli support to swift-nio-extras
-  // test('Brotli', async () => {
+  // test.concurrent('Brotli', async () => {
   //   const response = await fetch(`${baseUrl}/brotli`)
 
   //   expect(response.status).toBe(200)
@@ -39,7 +39,7 @@ describe('Request methods', () => {
 
   for (const method of methods) {
     // eslint-disable-next-line @typescript-eslint/no-loop-func
-    test(method as string, async () => {
+    test.concurrent(method as string, async () => {
       const response = await fetch(`${baseUrl}/${method!.toLowerCase()}`, {
         method,
       })
@@ -49,7 +49,7 @@ describe('Request methods', () => {
   }
 })
 
-test('Request headers', async () => {
+test.concurrent('Request headers', async () => {
   const response = await fetch(`${baseUrl}/headers`, {
     headers: {
       foo: 'bar',
@@ -67,14 +67,14 @@ test('Request headers', async () => {
   expect(body.headers.Lemon).toBe('strawberry')
 })
 
-test('Response headers', async () => {
+test.concurrent('Response headers', async () => {
   const response = await fetch(`${baseUrl}/response-headers?foo=bar&foo=test&bar=foo`)
 
   expect(response.status).toBe(200)
   expect(response.headers.bar).toBe('foo')
 })
 
-test('Request form', async () => {
+test.concurrent('Request form', async () => {
   const response = await fetch(`${baseUrl}/post`, {
     method: 'POST',
     form: {
@@ -91,7 +91,7 @@ test('Request form', async () => {
   expect(body.form.foo).toBe('bar')
 })
 
-test('Request cookie handling', async () => {
+test.concurrent('Request cookie handling', async () => {
   const jar = new CookieJar()
 
   const response = await fetch(`${baseUrl}/cookies/set`, {
@@ -111,7 +111,7 @@ test('Request cookie handling', async () => {
   expect(cookieStr).toHaveLength(42)
 }, 60000)
 
-test('Request multi-part', async () => {
+test.concurrent('Request multi-part', async () => {
   const response = await fetch(`${baseUrl}/image/webp`)
 
   expect(response.status).toBe(200)
@@ -132,7 +132,7 @@ test('Request multi-part', async () => {
   expect(response_2.body!.length).toBeGreaterThan(10000)
 }, 40000)
 
-test('Response binary data', async () => {
+test.concurrent('Response binary data', async () => {
   const response = await fetch(`${baseUrl}/image/webp`)
 
   expect(response.status).toBe(200)
@@ -170,7 +170,7 @@ describe('image streaming', () => {
 
   for (const [imageType, hash] of imagesWithHashes) {
     // eslint-disable-next-line @typescript-eslint/no-loop-func
-    test(imageType, async () => {
+    test.concurrent(imageType, async () => {
       const stream = fetchStream(`${baseUrl}/image/${imageType}`)
 
       const [response, buffer] = await streamToBuffer(stream)
