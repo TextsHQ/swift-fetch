@@ -15,6 +15,7 @@
   "dependencies": {
     "@types/tough-cookie": "^4.0.2",
     "form-data": "^4.0.0",
+    "node-gyp": "^9.3.1",
     "node-swift": "https://github.com/kabiroberai/node-swift#master",
     "tough-cookie": "^4.1.2"
   },
