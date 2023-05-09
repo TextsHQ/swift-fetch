@@ -22,7 +22,7 @@ interface SwiftFetchClient {
 }
 
 // eslint-disable-next-line global-require
-const SwiftFetch = require('../build/SwiftFetch.node') as SwiftFetchClient
+const SwiftFetch = require('../build/Release/SwiftFetch.node') as SwiftFetchClient
 
 export interface FetchOptions {
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'

@@ -23,7 +23,7 @@ async function runAndCapture(command: string, args: readonly string[], options: 
 (async () => {
   if (process.argv.includes('--clean')) {
     try {
-      await fs.rm(join(__dirname, '..', 'build'), { recursive: true, force: true })
+      await fs.rm(join(__dirname, '..', '.swift-build'), { recursive: true, force: true })
       await fs.unlink(join(__dirname, '..', 'node_modules', 'node-swift', 'NodeSwiftHost', 'Package.resolved'))
     } catch { /* empty */ }
   }
@@ -54,6 +54,8 @@ async function runAndCapture(command: string, args: readonly string[], options: 
     swiftFlags,
     cFlags,
     linkerFlags,
+    static: true,
+    buildPath: join(__dirname, '..', '.swift-build'),
   })
 
   // we don't want to strip on debug builds
@@ -67,4 +69,7 @@ async function runAndCapture(command: string, args: readonly string[], options: 
   } else if (osPlatform === 'linux') {
     await runAndCapture('strip', [realBinaryPath])
   }
+
+  await fs.mkdir(join(__dirname, '..', 'build', 'Release'), { recursive: true })
+  await fs.cp(realBinaryPath, join(__dirname, '..', 'build', 'Release', 'SwiftFetch.node'))
 })()

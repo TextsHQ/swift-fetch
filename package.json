@@ -10,7 +10,6 @@
     "build-ts": "tsc",
     "build-swift": "ts-node scripts/build.ts",
     "postinstall": "tsc",
-    "rebuild": "yarn build --clean",
     "test": "jest"
   },
   "dependencies": {

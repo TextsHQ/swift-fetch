@@ -1,10 +1,11 @@
 # NodeJS
 node_modules
 dist/
+build/
 
 # Swift
-.build
-build/
+.build/
+.swift-build/
 Package.resolved
 
 # misc
