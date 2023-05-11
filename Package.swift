@@ -14,8 +14,8 @@ let package = Package(
     ],
     dependencies: [
         .package(path: "node_modules/node-swift"),
-        .package(url: "https://github.com/1Conan/swift-nio.git", branch: "main"),
-        .package(url: "https://github.com/1Conan/async-http-client.git", branch: "main"),
+        .package(url: "https://github.com/TextsHQ/swift-nio.git", branch: "main"),
+        .package(url: "https://github.com/TextsHQ/async-http-client.git", branch: "main"),
     ],
     targets: [
         .target(
