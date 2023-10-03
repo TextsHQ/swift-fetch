@@ -10,7 +10,7 @@ const baseUrl = 'https://httpbin.1conan.com'
 test.concurrent('Fetch JSON document', async () => {
   const response = await fetch(`${baseUrl}/json`)
 
-  expect(response.status).toBe(200)
+  expect(response.statusCode).toBe(200)
   expect(response.body).toBeDefined()
   expect(JSON.parse(response.body!.toString())).toBeDefined()
 })
@@ -19,7 +19,7 @@ describe('Compressions', () => {
   test.concurrent('GZip', async () => {
     const response = await fetch(`${baseUrl}/gzip`)
 
-    expect(response.status).toBe(200)
+    expect(response.statusCode).toBe(200)
     expect(response.body).toBeDefined()
     expect(response.body!.toString().startsWith('{')).toBe(true)
   })
@@ -28,7 +28,7 @@ describe('Compressions', () => {
   // test.concurrent('Brotli', async () => {
   //   const response = await fetch(`${baseUrl}/brotli`)
 
-  //   expect(response.status).toBe(200)
+  //   expect(response.statusCode).toBe(200)
   //   expect(response.body).toBeDefined()
   //   expect(response.body!.toString().startsWith('{')).toBe(true)
   // })
@@ -44,7 +44,7 @@ describe('Request methods', () => {
         method,
       })
 
-      expect(response.status).toBe(200)
+      expect(response.statusCode).toBe(200)
     })
   }
 })
@@ -57,7 +57,7 @@ test.concurrent('Request headers', async () => {
     },
   })
 
-  expect(response.status).toBe(200)
+  expect(response.statusCode).toBe(200)
 
   expect(response.body).toBeDefined()
 
@@ -70,7 +70,7 @@ test.concurrent('Request headers', async () => {
 test.concurrent('Response headers', async () => {
   const response = await fetch(`${baseUrl}/response-headers?foo=bar&foo=test&bar=foo`)
 
-  expect(response.status).toBe(200)
+  expect(response.statusCode).toBe(200)
   expect(response.headers.bar).toBe('foo')
 })
 
@@ -83,7 +83,7 @@ test.concurrent('Request form', async () => {
     },
   })
 
-  expect(response.status).toBe(200)
+  expect(response.statusCode).toBe(200)
   expect(response.body).toBeDefined()
 
   const body = JSON.parse(response.body!.toString())
@@ -101,9 +101,10 @@ test.concurrent('Request cookie handling', async () => {
       lemon: 'juice',
       strawberry: 'blueberry',
     },
+    followRedirect: false,
   })
 
-  expect(response.status).toBe(302)
+  expect(response.statusCode).toBe(302)
   expect(response.headers['set-cookie']).toHaveLength(3)
 
   const cookieStr = jar.getCookieStringSync(`${baseUrl}`)
@@ -114,7 +115,7 @@ test.concurrent('Request cookie handling', async () => {
 test.concurrent('Request multi-part', async () => {
   const response = await fetch(`${baseUrl}/image/webp`)
 
-  expect(response.status).toBe(200)
+  expect(response.statusCode).toBe(200)
   expect(response.body?.constructor.name).toBe('Buffer')
   expect(response.body!.length).toBeGreaterThan(10000)
 
@@ -135,7 +136,7 @@ test.concurrent('Request multi-part', async () => {
 test.concurrent('Response binary data', async () => {
   const response = await fetch(`${baseUrl}/image/webp`)
 
-  expect(response.status).toBe(200)
+  expect(response.statusCode).toBe(200)
   expect(response.body?.constructor.name).toBe('Buffer')
   expect(response.body?.length).toBeGreaterThan(10000)
 })
@@ -178,7 +179,7 @@ describe('Image Streaming', () => {
       const bufferHash = crypto.createHash('sha256').update(buffer).digest('hex')
 
       expect(bufferHash).toBe(hash)
-      expect(response.status).toBe(200)
+      expect(response.statusCode).toBe(200)
     })
   }
 })

@@ -8,8 +8,7 @@ interface SwiftFetchRequestOptions {
   body?: Buffer
 
   timeout?: number
-  redirect?: 'follow' | 'manual'
-  follow?: number
+  followRedirect?: boolean
   verifyCertificate?: boolean
 }
 
@@ -33,13 +32,12 @@ export interface FetchOptions {
   cookieJar?: CookieJar
 
   timeout?: number
-  redirect?: 'follow' | 'manual'
-  follow?: number
+  followRedirect?: boolean
   verifyCertificate?: boolean
 }
 
 export interface FetchResponse<T> {
-  status: number
+  statusCode: number
   headers: Record<string, string | string[]>
   body?: T
 }
@@ -52,8 +50,7 @@ const fetchOptionsToSwiftFetchOptions = (url: string, options?: FetchOptions): [
     method: options?.method,
     headers: options?.headers,
     timeout: options?.timeout,
-    redirect: options?.redirect,
-    follow: options?.follow,
+    followRedirect: options?.followRedirect,
     verifyCertificate: options?.verifyCertificate,
   }
 

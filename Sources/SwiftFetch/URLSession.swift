@@ -52,7 +52,9 @@ class HTTPStream: NSObject, URLSessionDataDelegate, URLSessionTaskDelegate {
             }
         }
         dataTask = URLSession.shared.dataTask(with: request)
-        dataTask.delegate = self
+        if #available(macOS 12, *) {
+            dataTask.delegate = self
+        }
         dataTask.resume()
     }
 
@@ -105,7 +107,10 @@ final class Client: NodeClass {
     }
 
     public func request(url: String, options: [String: NodeValue]?) async throws -> NodeValueConvertible {
-        let followRedirect = (try? options?["redirect"]?.as(String.self)) == "follow"
+        guard #available(macOS 12, *) else {
+            throw SwiftFetchError.unimplemented
+        }
+        let followRedirect = (try? options?["followRedirect"]?.as(Bool.self)) ?? true
         let (data, response) = try await urlSession.data(
             for: mapToURLRequest(url: URL(string: url)!, options: options),
             delegate: TaskDelegate(followRedirect: followRedirect)
@@ -115,7 +120,7 @@ final class Client: NodeClass {
 
         return [
             "body": data,
-            "status": httpUrlResponse.statusCode,
+            "statusCode": httpUrlResponse.statusCode,
             "headers": mapHeaders(httpUrlResponse.allHeaderFields)
         ]
     }
@@ -129,7 +134,7 @@ final class Client: NodeClass {
             }
         }
 
-        let followRedirect = (try? options?["redirect"]?.as(String.self)) == "follow"
+        let followRedirect = (try? options?["followRedirect"]?.as(Bool.self)) ?? true
 
         let httpStream = try HTTPStream(
             request: mapToURLRequest(url: URL(string: url)!, options: options),
@@ -139,7 +144,7 @@ final class Client: NodeClass {
         for await (event, data) in httpStream.stream {
             if event == "response", let response = data as? HTTPURLResponse {
                 callback("response", [
-                    "status": response.statusCode,
+                    "statusCode": response.statusCode,
                     "headers": mapHeaders(response.allHeaderFields)
                 ])
             } else if event == "data", let data = data as? Data {
