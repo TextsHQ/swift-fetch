@@ -9,19 +9,27 @@ let package = Package(
     products: [
         .library(
             name: "SwiftFetch",
+            type: .dynamic,
             targets: ["SwiftFetch"]
-        )
+        ),
+        .library(
+            name: "SwiftFetch-Auto",
+            targets: ["SwiftFetch"]
+        ),
     ],
     dependencies: [
         .package(path: "node_modules/node-swift"),
         .package(url: "https://github.com/TextsHQ/swift-nio.git", branch: "main"),
         .package(url: "https://github.com/TextsHQ/async-http-client.git", branch: "main"),
+        .package(url: "https://github.com/apple/swift-async-algorithms.git", from: "1.0.0-alpha"),
     ],
     targets: [
         .target(
             name: "SwiftFetch",
             dependencies: [
                 .product(name: "NodeAPI", package: "node-swift"),
+                .product(name: "NodeModuleSupport", package: "node-swift"),
+                .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"),
             ]
         )
     ]

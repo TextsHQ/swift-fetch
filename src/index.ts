@@ -94,12 +94,10 @@ export async function fetch(url: string, options?: FetchOptions): Promise<FetchR
 
   const response = await swiftFetchClient.request(urlString, swiftOptions)
 
-  if (Array.isArray(response.headers['set-cookie'])) {
+  if (response.headers['set-cookie']) {
     for (const cookie of response.headers['set-cookie']) {
-      await options?.cookieJar?.setCookie(cookie, urlString)
+      await options?.cookieJar?.setCookie(cookie, urlString, { ignoreError: true })
     }
-  } else if (response.headers['set-cookie']) {
-    await options?.cookieJar?.setCookie(response.headers['set-cookie'], urlString)
   }
 
   return response

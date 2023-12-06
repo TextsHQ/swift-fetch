@@ -64,23 +64,18 @@ var clientConfig: HTTPClient.Configuration = {
 
 let evGroup = MultiThreadedEventLoopGroup(numberOfThreads: System.coreCount)
 
-final class Client: NodeClass {
-    public static var properties: NodeClassPropertyList = [
-        "request": NodeMethod(request),
-        "requestStream": NodeMethod(requestStream),
-    ]
-
+@NodeActor @NodeClass final class Client {
     private static var retryTimeout: TimeInterval = 180
 
     private static var connectionTimeout: Int64 = 60
 
     let queue: NodeAsyncQueue
 
-    init(_ args: NodeArguments) throws {
+    @NodeConstructor init() throws {
         self.queue = try NodeAsyncQueue(label: "http-stream-callback-queue")
     }
 
-    public func request(url: String, options: [String: NodeValue]?) async throws -> NodeValueConvertible {
+    @NodeMethod public func request(url: String, options: [String: NodeValue]?) async throws -> NodeValueConvertible {
         do {
             return try await Self.internalRequest(url: url, options: options) { response in
                 let byteBuffer = try await response.body.collect(upTo: 1024 * 1024 * 100) // up to 100MB
@@ -97,7 +92,7 @@ final class Client: NodeClass {
         }
     }
 
-    public func requestStream(url: String, options: [String: NodeValue]?, callbackFn: NodeFunction) async throws -> NodeValueConvertible {
+    @NodeMethod public func requestStream(url: String, options: [String: NodeValue]?, callbackFn: NodeFunction) async throws {
         let callback = { [queue] (event, data) in
             do {
                 try queue.run { _ = try callbackFn(event, data) }
@@ -107,7 +102,7 @@ final class Client: NodeClass {
         }
 
         do {
-            return try await Self.internalRequest(url: url, options: options) { response in
+            try await Self.internalRequest(url: url, options: options) { response in
                 await callback("response", [
                     "statusCode": Int(response.status.code),
                     "headers": Self.mapHeaders(response.headers)
@@ -123,14 +118,11 @@ final class Client: NodeClass {
                 }
 
                 callback("end", undefined)
-                return undefined
             }
         } catch {
             print("swift-fetch requestStream error \(error)")
             callback("error", "\(error)")
         }
-
-        return undefined
     }
 
     static func internalRequest<T>(
@@ -164,7 +156,9 @@ final class Client: NodeClass {
     static func mapHeaders(_ headers: HTTPHeaders) -> NodeValueConvertible {
         headers.reduce(into: [:]) { (dict, item) in
             let key = item.name.lowercased()
-            if let existingValue = dict[key] {
+            if key == "set-cookie" {
+                dict[key] = (dict[key] as? [String] ?? []) + [item.value]
+            } else if let existingValue = dict[key] {
                 if let arrayValue = existingValue as? [String] {
                     dict[key] = arrayValue + [item.value]
                 } else if let stringValue = existingValue as? String {

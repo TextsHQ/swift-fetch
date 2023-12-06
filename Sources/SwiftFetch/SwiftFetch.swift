@@ -6,10 +6,6 @@ enum SwiftFetchError: Error {
     case unimplemented
 }
 
-@main struct SwiftFetch: NodeModule {
-    let exports: NodeValueConvertible
-
-    init() throws {
-        exports = try Client.constructor()
-    }
+#NodeModule {
+    try Client.constructor()
 }

@@ -2,101 +2,16 @@
 // Only supports macOS 12.0+ and iOS 15.0+
 import Foundation
 import NodeAPI
+import AsyncAlgorithms
 
-fileprivate class TaskDelegate: NSObject, URLSessionTaskDelegate {
-    let followRedirect: Bool
-
-    public init(followRedirect: Bool) {
-        self.followRedirect = followRedirect
-    }
-
-    func urlSession(
-        _ session: URLSession,
-        task: URLSessionTask,
-        willPerformHTTPRedirection response: HTTPURLResponse,
-        newRequest request: URLRequest,
-        completionHandler: @escaping @Sendable (URLRequest?) -> Void
-    ) {
-        completionHandler(followRedirect ? request : nil)
-    }
-}
-
-extension String {
-    func firstIndex(of character: Character, offsetBy: String.Index) -> Index? {
-        let substring = self[offsetBy...]
-        return substring.firstIndex(of: character)
-    }
-}
-
-class HTTPStream: NSObject, URLSessionDataDelegate, URLSessionTaskDelegate {
-    typealias CallbackArguments = (event: String, data: Any)
-
-    private var callback: ((String, Any) -> Void)? = nil
-
-    public var stream: AsyncStream<CallbackArguments>!
-
-    public var dataTask: URLSessionDataTask!
-
-    let followRedirect: Bool
-
-    public init(request: URLRequest, followRedirect: Bool) {
-        self.followRedirect = followRedirect
-        super.init()
-        stream = AsyncStream<CallbackArguments> { continuation in
-            self.callback = { event, data in
-                if event == "end" {
-                    continuation.finish()
-                } else {
-                    continuation.yield((event, data))
-                }
-            }
-        }
-        dataTask = URLSession.shared.dataTask(with: request)
-        if #available(macOS 12, *) {
-            dataTask.delegate = self
-        }
-        dataTask.resume()
-    }
-
-    func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
-        callback?("data", data)
-    }
-
-    func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive response: URLResponse, completionHandler: @escaping (URLSession.ResponseDisposition) -> Void) {
-        callback?("response", response)
-        completionHandler(.allow)
-    }
-
-    func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
-        if let error {
-            callback?("error", error)
-        } else {
-            callback?("end", undefined)
-        }
-    }
-
-    func urlSession(
-        _ session: URLSession,
-        task: URLSessionTask,
-        willPerformHTTPRedirection response: HTTPURLResponse,
-        newRequest request: URLRequest,
-        completionHandler: @escaping @Sendable (URLRequest?) -> Void
-    ) {
-        completionHandler(followRedirect ? request : nil)
-    }
-}
-
-final class Client: NodeClass {
-    public static var properties: NodeClassPropertyList = [
-        "request": NodeMethod(request),
-        "requestStream": NodeMethod(requestStream),
-    ]
+@NodeClass @NodeActor final class Client {
+    private static var retryTimeout: TimeInterval = 180
 
     let queue: NodeAsyncQueue
 
     let urlSession: URLSession
 
-    init(_ args: NodeArguments) throws {
+    @NodeConstructor init() throws {
         queue = try NodeAsyncQueue(label: "http-stream-callback-queue")
 
         let urlSessionConfig = URLSessionConfiguration.ephemeral
@@ -106,26 +21,38 @@ final class Client: NodeClass {
         urlSession = URLSession(configuration: urlSessionConfig)
     }
 
-    public func request(url: String, options: [String: NodeValue]?) async throws -> NodeValueConvertible {
-        guard #available(macOS 12, *) else {
+    @NodeMethod func request(url: String, options: [String: NodeValue]?) async throws -> NodeValueConvertible {
+        guard #available(macOS 12, iOS 15, *) else {
             throw SwiftFetchError.unimplemented
         }
-        let followRedirect = (try? options?["followRedirect"]?.as(Bool.self)) ?? true
-        let (data, response) = try await urlSession.data(
-            for: mapToURLRequest(url: URL(string: url)!, options: options),
-            delegate: TaskDelegate(followRedirect: followRedirect)
-        )
 
-        let httpUrlResponse = response as! HTTPURLResponse
+        let options = try FetchOptions(url: url, raw: options)
 
-        return [
-            "body": data,
-            "statusCode": httpUrlResponse.statusCode,
-            "headers": mapHeaders(httpUrlResponse.allHeaderFields)
-        ]
+        return try await Self.retry(withTimeout: Self.retryTimeout) { [self] in
+            let (data, response) = try await urlSession.data(
+                for: options.request,
+                delegate: TaskDelegate(options: options)
+            )
+
+            guard let httpResponse = response as? HTTPURLResponse  else {
+                throw URLError(.badServerResponse)
+            }
+
+            return [
+                "body": data,
+                "statusCode": httpResponse.statusCode,
+                "headers": mapHeaders(httpResponse.allHeaderFields)
+            ]
+        }
     }
 
-    public func requestStream(url: String, options: [String: NodeValue]?, callbackFn: NodeFunction) async throws -> NodeValueConvertible {
+    @NodeMethod func requestStream(url: String, options: [String: NodeValue]?, callbackFn: NodeFunction) async throws {
+        guard #available(macOS 12, iOS 15, *) else {
+            throw SwiftFetchError.unimplemented
+        }
+
+        let options = try FetchOptions(url: url, raw: options)
+
         let callback = { [queue] (event, data) in
             do {
                 try queue.run { _ = try callbackFn(event, data) }
@@ -134,119 +61,233 @@ final class Client: NodeClass {
             }
         }
 
-        let followRedirect = (try? options?["followRedirect"]?.as(Bool.self)) ?? true
+        do {
+            let (stream, response) = try await Self.retry(withTimeout: Self.retryTimeout) { [self] in
+                try await urlSession.bytes(
+                    for: options.request,
+                    delegate: TaskDelegate(options: options)
+                )
+            }
 
-        let httpStream = try HTTPStream(
-            request: mapToURLRequest(url: URL(string: url)!, options: options),
-            followRedirect: followRedirect
-        )
-
-        for await (event, data) in httpStream.stream {
-            if event == "response", let response = data as? HTTPURLResponse {
+            if let response = response as? HTTPURLResponse {
                 callback("response", [
                     "statusCode": response.statusCode,
                     "headers": mapHeaders(response.allHeaderFields)
                 ])
-            } else if event == "data", let data = data as? Data {
-                callback("data", data)
-            } else if event == "error", let error = data as? Error {
-                callback("error", String(describing: error))
             }
+
+            // Node's default highWaterMark is 64k
+            for try await bytes in stream.chunks(ofCount: 64 * 1024, into: Data.self) {
+                callback("data", bytes)
+            }
+        } catch {
+            callback("error", "\(error)")
         }
+
         callback("end", undefined)
-        return undefined
     }
 
-    func mapHeaders(_ headers: [AnyHashable: Any]) -> NodeValueConvertible {
-        headers.reduce(into: [:]) { (dict, item) in
-            guard let key = item.key as? String, let value = item.value as? String else {
-                return
-            }
-            if key.lowercased() == "set-cookie" {
-                let cookies = splitSetCookieHeader(value)
-                if cookies.count == 1 {
-                    dict[key.lowercased()] = cookies[0]
-                } else {
-                    dict[key.lowercased()] = cookies as [NodeValueConvertible]
-                }
+    nonisolated func mapHeaders(_ headers: [AnyHashable: Any]) -> NodeValueConvertible {
+        guard let headers = headers as? [String: String] else {
+            return [:]
+        }
+        return Dictionary(headers.map { key, value in
+            let key = key.lowercased()
+            let value = if key == "set-cookie" {
+                SetCookieParser.splitHeader(value) as [NodeValueConvertible]
             } else {
-                dict[key] = value
+                value as NodeValueConvertible
             }
-        }
+            return (key, value)
+        }, uniquingKeysWith: { $1 })
     }
 
-    func mapToURLRequest(url: URL, options: [String: NodeValue]?) throws -> URLRequest {
-        var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalAndRemoteCacheData, timeoutInterval: 10)
 
-        if let method = try options?["method"]?.as(String.self) {
-            request.httpMethod = method.uppercased()
-        }
+    @discardableResult
+    static nonisolated func retry<T>(
+        withTimeout timeout: TimeInterval,
+        maxRetries: Int = 100,
+        intervalMS: UInt64 = 100,
+        _ closure: @Sendable @escaping () async throws -> T
+    ) async throws -> T {
+        let start = Date()
+        var result: Result<T, Error>
+        var attempt = 0
 
-        if let headers = try options?["headers"]?.as([String: String].self) {
-            for (key, value) in headers {
-                request.addValue(value, forHTTPHeaderField: key)
+        repeat {
+            do {
+                return try await closure()
+            } catch {
+                print("retry error \(String(describing: error)) (attempt \(attempt)))")
+                result = .failure(error)
+                attempt += 1
             }
-        }
+            try? await Task.sleep(nanoseconds: intervalMS * 1_000_000)
+        } while -start.timeIntervalSinceNow < timeout && attempt < maxRetries
 
-        if let body = try options?["body"]?.as(Data.self) {
-            request.httpBody = body
+        return try result.get()
+    }
+}
+
+private final class TaskDelegate: NSObject, URLSessionTaskDelegate {
+    let options: FetchOptions
+
+    init(options: FetchOptions) {
+        self.options = options
+    }
+
+    func urlSession(
+        _ session: URLSession,
+        task: URLSessionTask,
+        willPerformHTTPRedirection response: HTTPURLResponse,
+        newRequest request: URLRequest
+    ) async -> URLRequest? {
+        options.followRedirect ? request : nil
+    }
+}
+
+
+private struct FetchOptions {
+    var url: URL
+    var followRedirect: Bool
+    var headers: [String: String]
+    var method: String?
+    var body: Data?
+
+    var request: URLRequest {
+        var request = URLRequest(
+            url: url,
+            cachePolicy: .reloadIgnoringLocalAndRemoteCacheData,
+            timeoutInterval: .greatestFiniteMagnitude
+        )
+
+        request.httpMethod = method?.uppercased()
+        request.httpBody = body
+
+        for (key, value) in headers {
+            request.addValue(value, forHTTPHeaderField: key)
         }
 
         return request
     }
+}
 
-    // ported from: https://github.com/ktorio/ktor/blob/main/ktor-http/common/src/io/ktor/http/HttpMessageProperties.kt#L117
-    func splitSetCookieHeader(_ cookieHeader: String) -> [String] {
-        var commaIndex = cookieHeader.firstIndex(of: ",")
-        if commaIndex == nil {
-            return [cookieHeader]
+
+extension FetchOptions {
+    @NodeActor init(url: String, raw: [String: NodeValue]?) throws {
+        guard let url = URL(string: url) else { throw URLError(.badURL) }
+        self.url = url
+        followRedirect = try raw?["followRedirect"]?.as(Bool.self) ?? true
+        headers = try raw?["headers"]?.as([String: String].self) ?? [:]
+        method = try raw?["method"]?.as(String.self)
+        body = try raw?["body"]?.as(NodeTypedArray<UInt8>.self)?.dataNoCopy() ?? Data()
+    }
+}
+
+enum SetCookieParser {}
+
+extension SetCookieParser {
+    static func splitHeader(_ cookieHeader: String) -> [String] {
+        splitHeader(cookieHeader[...]).map { String($0) }
+    }
+
+    // ported from: https://github.com/ktorio/ktor/blob/945e56085d06d2bed2a7dadbea01d7f1bd1a5409/ktor-http/common/src/io/ktor/http/HttpMessageProperties.kt#L108
+    static func splitHeader(_ cookieHeader: Substring) -> [Substring] {
+        guard var commaIndex = cookieHeader.firstIndex(of: ",") else {
+            return [cookieHeader[...]]
         }
 
-        var cookies = [String]()
-        var current = 0
+        var cookies: [Substring] = []
+        var currentCookie = cookieHeader
 
-        var equalsIndex = cookieHeader.firstIndex(of: "=", offsetBy: commaIndex!)
-        var semicolonIndex = cookieHeader.firstIndex(of: ";", offsetBy: commaIndex!)
-        while current < cookieHeader.count, commaIndex != nil {
-            if equalsIndex == nil || equalsIndex! < commaIndex! {
-                equalsIndex = cookieHeader.firstIndex(of: "=", offsetBy: commaIndex!)
+        var afterComma: Substring { cookieHeader[commaIndex...].dropFirst() }
+
+        var equalsIndex = afterComma.firstIndex(of: "=")
+        var semicolonIndex = afterComma.firstIndex(of: ";")
+        while !currentCookie.isEmpty {
+            if equalsIndex.map({ $0 < commaIndex }) ?? true {
+                equalsIndex = afterComma.firstIndex(of: "=")
             }
 
-            var nextCommaIndex = cookieHeader.firstIndex(of: ",", offsetBy: cookieHeader.index(commaIndex!, offsetBy: 1))
-            while nextCommaIndex != nil, equalsIndex != nil, nextCommaIndex! < equalsIndex! {
-                commaIndex = nextCommaIndex
-                nextCommaIndex = cookieHeader.firstIndex(of: ",", offsetBy: cookieHeader.index(nextCommaIndex!, offsetBy: 1))
+            var nextCommaIndex = afterComma.firstIndex(of: ",")
+            while let next = nextCommaIndex, let equalsIndex, next < equalsIndex {
+                commaIndex = next
+                nextCommaIndex = afterComma.firstIndex(of: ",")
             }
 
-            if semicolonIndex == nil || semicolonIndex! < commaIndex! {
-                semicolonIndex = cookieHeader.firstIndex(of: ";", offsetBy: commaIndex!)
+            if semicolonIndex.map({ $0 < commaIndex }) ?? true {
+                semicolonIndex = afterComma.firstIndex(of: ";")
             }
 
             // No more keys remaining.
-            if equalsIndex == nil {
-                cookies.append(String(cookieHeader[cookieHeader.index(cookieHeader.startIndex, offsetBy: current)...]).trimmingCharacters(in: .whitespaces))
-                return cookies
-            }
+            guard let equalsIndex else { break }
 
             // No ';' between ',' and '=' => We're on a header border.
-            if semicolonIndex == nil || semicolonIndex! > equalsIndex! {
-                let start = cookieHeader.index(cookieHeader.startIndex, offsetBy: current)
-                let end = commaIndex!
-                cookies.append(String(cookieHeader[start..<end]).trimmingCharacters(in: .whitespaces))
+            if semicolonIndex.map({ $0 > equalsIndex }) ?? true {
+                cookies.append(currentCookie[..<commaIndex])
 
-                // Update comma index at the end of loop.
-                current = cookieHeader.distance(from: cookieHeader.startIndex, to: commaIndex!) + 1
+                // Update cookie at the end of loop.
+                currentCookie = afterComma
             }
 
             // ',' in value, skip it and find next.
+            guard let nextCommaIndex else { break }
             commaIndex = nextCommaIndex
         }
 
-        if current < cookieHeader.count {
-            cookies.append(String(cookieHeader[cookieHeader.index(cookieHeader.startIndex, offsetBy: current)...]).trimmingCharacters(in: .whitespaces))
+        if !currentCookie.isEmpty {
+            cookies.append(currentCookie)
         }
 
-        return cookies
+        return cookies.map { $0.trimming(.whitespaces) }
+    }
+}
+
+extension BidirectionalCollection<UnicodeScalar> {
+    fileprivate func trimming(_ set: CharacterSet) -> Range<Index>? {
+        guard let start = firstIndex(where: { !set.contains($0) }),
+              let last = lastIndex(where: { !set.contains($0) }) else {
+            return nil
+        }
+        let end = index(after: last)
+        return start..<end
+    }
+}
+
+extension Substring {
+    public func trimming(_ set: CharacterSet) -> Substring {
+        unicodeScalars.trimming(set).map { self[$0] } ?? .init()
+    }
+}
+
+extension String {
+    public func trimming(_ set: CharacterSet) -> Substring {
+        self[...].trimming(set)
+    }
+}
+
+extension NodeTypedArray<UInt8> {
+    /// Bridges the buffer's contents to `Data`, potentially avoiding a copy.
+    ///
+    /// - Parameter threshold: The minimum length of the data for which no-copy
+    /// bridging occurs. Under this length, performs a copy. The default value
+    /// is 512. Pass 0 to never copy.
+    ///
+    /// No-copy bridging has a cost: the `TypedArray` has to be retained while
+    /// the `Data` is alive. When the `Data` is deallocated, the `TypedArray` is
+    /// relinquished to Node's garbage collector asynchronously, which may have
+    /// a non-negligible cost.
+    func dataNoCopy(threshold: Int = 512) throws -> Data {
+        try withUnsafeMutableBytes { bytes in
+            guard bytes.count >= threshold else { return Data(buffer: bytes) }
+            guard let base = bytes.baseAddress else { return Data() }
+            return Data(
+                bytesNoCopy: base,
+                count: bytes.count,
+                // the buffer is alive as long as the receiver is
+                deallocator: .custom { _, _ in _ = self }
+            )
+        }
     }
 }
 #endif
