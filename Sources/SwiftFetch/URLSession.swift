@@ -117,6 +117,8 @@ import AsyncAlgorithms
         repeat {
             do {
                 return try await closure()
+            } catch let error as NSError where error.domain == NSURLErrorDomain && error.code == NSURLErrorServerCertificateUntrusted {
+                throw error
             } catch {
                 print("retry error \(String(describing: error)) (attempt \(attempt)))")
                 result = .failure(error)
