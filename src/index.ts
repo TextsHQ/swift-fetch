@@ -8,9 +8,9 @@ interface SwiftFetchRequestOptions {
   headers?: Record<string, string>
   body?: Buffer
 
-  timeout?: number
   followRedirect?: boolean
-  verifyCertificate?: boolean
+  skipCertificateVerification?: boolean
+  pinnedCertificates?: Buffer[]
 }
 
 type SwiftFetchStreamEvent = 'response' | 'data' | 'end' | 'error'
@@ -31,9 +31,9 @@ async function fetchOptionsToSwiftFetchOptions(url: string, options?: FetchOptio
   const swiftOptions: SwiftFetchRequestOptions = {
     method: options?.method,
     headers: options?.headers,
-    timeout: options?.timeout,
     followRedirect: options?.followRedirect,
-    verifyCertificate: options?.verifyCertificate,
+    skipCertificateVerification: process.env.NODE_TLS_REJECT_UNAUTHORIZED === '0',
+    pinnedCertificates: options?.pinnedCertificates,
   }
 
   if (options?.cookieJar) {

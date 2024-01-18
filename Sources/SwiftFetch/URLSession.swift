@@ -146,6 +146,45 @@ private final class TaskDelegate: NSObject, URLSessionTaskDelegate {
     ) async -> URLRequest? {
         options.followRedirect ? request : nil
     }
+
+    func urlSession(_ session: URLSession, didReceive challenge: URLAuthenticationChallenge, completionHandler completion: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void) {
+        var disposition: URLSession.AuthChallengeDisposition = .performDefaultHandling
+        var credential: URLCredential?
+
+        defer { completion(disposition, credential) }
+
+        if options.skipCertificateVerification == true {
+            disposition = .useCredential
+            credential = URLCredential(trust: challenge.protectionSpace.serverTrust!)
+            return
+        }
+
+        guard let pinnedCertificates = options.pinnedCertificates else {
+            return
+        }
+
+        guard challenge.protectionSpace.authenticationMethod == NSURLAuthenticationMethodServerTrust,
+              let serverTrust = challenge.protectionSpace.serverTrust else {
+            return
+        }
+
+        guard #available(macOS 12, iOS 15, *) else {
+            return
+        }
+
+        guard let certificateChain = SecTrustCopyCertificateChain(serverTrust) as? [SecCertificate], !certificateChain.isEmpty else {
+            return
+        }
+
+        for certificate in certificateChain {
+            let certificateData = SecCertificateCopyData(certificate) as Data
+            if pinnedCertificates.contains(certificateData) {
+                disposition = .useCredential
+                credential = URLCredential(trust: challenge.protectionSpace.serverTrust!)
+                return
+            }
+        }
+    }
 }
 
 
@@ -155,6 +194,8 @@ private struct FetchOptions {
     var headers: [String: String]
     var method: String?
     var body: Data?
+    var skipCertificateVerification: Bool?
+    var pinnedCertificates: [Data]?
 
     var request: URLRequest {
         var request = URLRequest(
@@ -182,7 +223,11 @@ extension FetchOptions {
         followRedirect = try raw?["followRedirect"]?.as(Bool.self) ?? true
         headers = try raw?["headers"]?.as([String: String].self) ?? [:]
         method = try raw?["method"]?.as(String.self)
-        body = try raw?["body"]?.as(NodeTypedArray<UInt8>.self)?.dataNoCopy() ?? Data()
+        body = try raw?["body"]?.as(NodeTypedArray<UInt8>.self)?.dataNoCopy()
+        skipCertificateVerification = try raw?["skipCertificateVerification"]?.as(Bool.self)
+        pinnedCertificates = try raw?["pinnedCertificates"]?.as([NodeValue].self)?.compactMap {
+            try $0.as(NodeTypedArray<UInt8>.self)?.dataNoCopy()
+        }
     }
 }
 #endif
