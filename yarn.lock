@@ -2076,6 +2076,23 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@textshq/platform-sdk@https://github.com/TextsHQ/platform-sdk":
+  version: 0.4.4
+  resolution: "@textshq/platform-sdk@https://github.com/TextsHQ/platform-sdk.git#commit=8b0e4d5db637d5103ce85000af5fec7738859748"
+  dependencies:
+    emoji-regex: "npm:^10.1.0"
+    lodash: "npm:^4.17.21"
+    qrcode.react: "npm:^3.1.0"
+    ws: "npm:^8.15.1"
+  dependenciesMeta:
+    lodash:
+      optional: true
+    ws:
+      optional: true
+  checksum: 6404c64623eab613415fbc0f9c48bed0916f7b6042101cde1989e7211be7c90cac03afa117462fd63f9b760be0fce3e37929a535a5fe64e20a850a0e7239dcbe
+  languageName: node
+  linkType: hard
+
 "@tootallnate/once@npm:2":
   version: 2.0.0
   resolution: "@tootallnate/once@npm:2.0.0"
@@ -3422,6 +3439,13 @@ __metadata:
   version: 0.13.1
   resolution: "emittery@npm:0.13.1"
   checksum: 1573d0ae29ab34661b6c63251ff8f5facd24ccf6a823f19417ae8ba8c88ea450325788c67f16c99edec8de4b52ce93a10fe441ece389fd156e88ee7dab9bfa35
+  languageName: node
+  linkType: hard
+
+"emoji-regex@npm:^10.1.0":
+  version: 10.3.0
+  resolution: "emoji-regex@npm:10.3.0"
+  checksum: b4838e8dcdceb44cf47f59abe352c25ff4fe7857acaf5fb51097c427f6f75b44d052eb907a7a3b86f86bc4eae3a93f5c2b7460abe79c407307e6212d65c91163
   languageName: node
   linkType: hard
 
@@ -6465,6 +6489,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"qrcode.react@npm:^3.1.0":
+  version: 3.1.0
+  resolution: "qrcode.react@npm:3.1.0"
+  peerDependencies:
+    react: ^16.8.0 || ^17.0.0 || ^18.0.0
+  checksum: af183e99ecaad90f7ef14bd027510ae7866935693c53ccf81b172438abbbf7f29c283c5dc7c2141b420d2413960b8f8dca8d9949646475afe669ed638e8fb722
+  languageName: node
+  linkType: hard
+
 "querystringify@npm:^2.1.1":
   version: 2.2.0
   resolution: "querystringify@npm:2.2.0"
@@ -7102,6 +7135,7 @@ __metadata:
     "@babel/plugin-syntax-flow": "npm:^7.14.5"
     "@babel/plugin-transform-react-jsx": "npm:^7.14.9"
     "@textshq/eslint-config": "https://github.com/TextsHQ/eslint-config#main"
+    "@textshq/platform-sdk": "https://github.com/TextsHQ/platform-sdk"
     "@types/jest": "npm:^29.5.1"
     "@types/node": "npm:^18.16.2"
     "@types/tough-cookie": "npm:^4.0.2"
@@ -7618,6 +7652,21 @@ __metadata:
     imurmurhash: "npm:^0.1.4"
     signal-exit: "npm:^3.0.7"
   checksum: a2c282c95ef5d8e1c27b335ae897b5eca00e85590d92a3fd69a437919b7b93ff36a69ea04145da55829d2164e724bc62202cdb5f4b208b425aba0807889375c7
+  languageName: node
+  linkType: hard
+
+"ws@npm:^8.15.1":
+  version: 8.16.0
+  resolution: "ws@npm:8.16.0"
+  peerDependencies:
+    bufferutil: ^4.0.1
+    utf-8-validate: ">=5.0.2"
+  peerDependenciesMeta:
+    bufferutil:
+      optional: true
+    utf-8-validate:
+      optional: true
+  checksum: a7783bb421c648b1e622b423409cb2a58ac5839521d2f689e84bc9dc41d59379c692dd405b15a997ea1d4c0c2e5314ad707332d0c558f15232d2bc07c0b4618a
   languageName: node
   linkType: hard
 

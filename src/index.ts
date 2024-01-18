@@ -1,9 +1,10 @@
 import { Readable } from 'stream'
 import FormData from 'form-data'
-import type { CookieJar } from 'tough-cookie'
+import type { FetchOptions, FetchResponse } from '@textshq/platform-sdk'
+import { mapBodyToBuffer } from './utils'
 
 interface SwiftFetchRequestOptions {
-  method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
+  method?: FetchOptions['method']
   headers?: Record<string, string>
   body?: Buffer
 
@@ -23,28 +24,9 @@ interface SwiftFetchClient {
 // eslint-disable-next-line global-require
 const SwiftFetch = require('../build/Release/SwiftFetch.node') as SwiftFetchClient
 
-export interface FetchOptions {
-  method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
-  headers?: Record<string, string>
-  searchParams?: Record<string, number | string>
-  form?: Record<string, number | string>
-  body?: string | Buffer | FormData
-  cookieJar?: CookieJar
-
-  timeout?: number
-  followRedirect?: boolean
-  verifyCertificate?: boolean
-}
-
-export interface FetchResponse<T> {
-  statusCode: number
-  headers: Record<string, string | string[]>
-  body?: T
-}
-
 const swiftFetchClient = new SwiftFetch()
 
-const fetchOptionsToSwiftFetchOptions = (url: string, options?: FetchOptions): [string, SwiftFetchRequestOptions] => {
+async function fetchOptionsToSwiftFetchOptions(url: string, options?: FetchOptions): Promise<[string, SwiftFetchRequestOptions]> {
   let urlString = url
   const swiftOptions: SwiftFetchRequestOptions = {
     method: options?.method,
@@ -61,24 +43,24 @@ const fetchOptionsToSwiftFetchOptions = (url: string, options?: FetchOptions): [
     }
   }
 
-  if (options?.form) {
-    const formData = new FormData()
-
-    for (const [key, value] of Object.entries(options.form)) {
-      formData.append(key, value)
+  if (options?.body) {
+    swiftOptions.body = await mapBodyToBuffer(options.body)
+    if (options?.body.constructor.name === 'FormData') {
+      swiftOptions.headers = (options.body as FormData).getHeaders(swiftOptions.headers)
     }
-
-    swiftOptions.headers = formData.getHeaders(swiftOptions.headers)
-    swiftOptions.body = formData.getBuffer()
-  } else if (options?.body?.constructor.name === 'FormData') {
-    swiftOptions.headers = (options.body as FormData).getHeaders(swiftOptions.headers)
-    swiftOptions.body = (options.body as FormData).getBuffer()
-  } else if (typeof options?.body === 'string' || options?.body instanceof String) {
-    swiftOptions.body = Buffer.from(options.body)
-  } else if (Buffer.isBuffer(options?.body)) {
-    swiftOptions.body = options?.body
-  } else if (options?.body) {
-    throw new Error('Invalid body type')
+  } else if (options?.form) {
+    for (const [key, val] of Object.entries(options.form)) {
+      if (val == null || val === undefined) delete options.form[key]
+      const body = new URLSearchParams(options.form as Record<string, string>)
+      if (swiftOptions.headers) {
+        swiftOptions.headers['content-type'] = 'application/x-www-form-urlencoded'
+      } else {
+        swiftOptions.headers = {
+          'content-type': 'application/x-www-form-urlencoded',
+        }
+      }
+      swiftOptions.body = Buffer.from(body.toString())
+    }
   }
 
   if (options?.searchParams) {
@@ -90,7 +72,7 @@ const fetchOptionsToSwiftFetchOptions = (url: string, options?: FetchOptions): [
 }
 
 export async function fetch(url: string, options?: FetchOptions): Promise<FetchResponse<Buffer>> {
-  const [urlString, swiftOptions] = fetchOptionsToSwiftFetchOptions(url, options)
+  const [urlString, swiftOptions] = await fetchOptionsToSwiftFetchOptions(url, options)
 
   const response = await swiftFetchClient.request(urlString, swiftOptions)
 
