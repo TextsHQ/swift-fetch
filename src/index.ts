@@ -85,8 +85,8 @@ export async function fetch(url: string, options?: FetchOptions): Promise<FetchR
   return response
 }
 
-export function fetchStream(url: string, options?: FetchOptions): Readable {
-  const [urlString, swiftOptions] = fetchOptionsToSwiftFetchOptions(url, options)
+export async function fetchStream(url: string, options?: FetchOptions): Promise<Readable> {
+  const [urlString, swiftOptions] = await fetchOptionsToSwiftFetchOptions(url, options)
 
   const readableStream = new Readable({
     read() {},
