@@ -186,48 +186,4 @@ private final class TaskDelegate: NSObject, URLSessionTaskDelegate {
         }
     }
 }
-
-
-private struct FetchOptions {
-    var url: URL
-    var followRedirect: Bool
-    var headers: [String: String]
-    var method: String?
-    var body: Data?
-    var skipCertificateVerification: Bool?
-    var pinnedCertificates: [Data]?
-
-    var request: URLRequest {
-        var request = URLRequest(
-            url: url,
-            cachePolicy: .reloadIgnoringLocalAndRemoteCacheData,
-            timeoutInterval: .greatestFiniteMagnitude
-        )
-
-        request.httpMethod = method?.uppercased()
-        request.httpBody = body
-
-        for (key, value) in headers {
-            request.addValue(value, forHTTPHeaderField: key)
-        }
-
-        return request
-    }
-}
-
-
-extension FetchOptions {
-    @NodeActor init(url: String, raw: [String: NodeValue]?) throws {
-        guard let url = URL(string: url) else { throw URLError(.badURL) }
-        self.url = url
-        followRedirect = try raw?["followRedirect"]?.as(Bool.self) ?? true
-        headers = try raw?["headers"]?.as([String: String].self) ?? [:]
-        method = try raw?["method"]?.as(String.self)
-        body = try raw?["body"]?.as(NodeTypedArray<UInt8>.self)?.dataNoCopy()
-        skipCertificateVerification = try raw?["skipCertificateVerification"]?.as(Bool.self)
-        pinnedCertificates = try raw?["pinnedCertificates"]?.as([NodeValue].self)?.compactMap {
-            try $0.as(NodeTypedArray<UInt8>.self)?.dataNoCopy()
-        }
-    }
-}
 #endif

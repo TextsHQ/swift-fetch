@@ -15,16 +15,16 @@ interface SwiftFetchRequestOptions {
 
 type SwiftFetchStreamEvent = 'response' | 'data' | 'end' | 'error'
 
-interface SwiftFetchClient {
-  new(): SwiftFetchClient
+interface ISwiftFetchClient {
+  new(): ISwiftFetchClient
   request(url: string, options?: SwiftFetchRequestOptions): Promise<FetchResponse<Buffer>>
   requestStream(url: string, options: SwiftFetchRequestOptions, callback: (event: SwiftFetchStreamEvent, data: Buffer | FetchResponse<null>) => void): Promise<void>
 }
 
 // eslint-disable-next-line global-require
-const SwiftFetch = require('../build/Release/SwiftFetch.node') as SwiftFetchClient
+const SwiftFetchNative = require('../build/Release/SwiftFetch.node') as ISwiftFetchClient
 
-const swiftFetchClient = new SwiftFetch()
+const client = new SwiftFetchNative()
 
 async function fetchOptionsToSwiftFetchOptions(url: string, options?: FetchOptions): Promise<[string, SwiftFetchRequestOptions]> {
   let urlString = url
@@ -74,7 +74,7 @@ async function fetchOptionsToSwiftFetchOptions(url: string, options?: FetchOptio
 export async function fetch(url: string, options?: FetchOptions): Promise<FetchResponse<Buffer>> {
   const [urlString, swiftOptions] = await fetchOptionsToSwiftFetchOptions(url, options)
 
-  const response = await swiftFetchClient.request(urlString, swiftOptions)
+  const response = await client.request(urlString, swiftOptions)
 
   if (response.headers['set-cookie']) {
     for (const cookie of response.headers['set-cookie']) {
@@ -92,7 +92,7 @@ export async function fetchStream(url: string, options?: FetchOptions): Promise<
     read() {},
   })
 
-  swiftFetchClient.requestStream(urlString, swiftOptions, (event: SwiftFetchStreamEvent, data: Buffer | FetchResponse<null>) => {
+  client.requestStream(urlString, swiftOptions, (event: SwiftFetchStreamEvent, data: Buffer | FetchResponse<null>) => {
     switch (event) {
       case 'response':
         readableStream.emit('response', data as FetchResponse<null>)
@@ -111,4 +111,30 @@ export async function fetchStream(url: string, options?: FetchOptions): Promise<
     }
   })
   return readableStream
+}
+
+export class SwiftFetchClient {
+  private client = new SwiftFetchNative()
+
+  async requestAsString(url: string, options?: FetchOptions): Promise<FetchResponse<string>> {
+    const response = await this.requestAsBuffer(url, options)
+    return {
+      ...response,
+      body: response.body?.toString('utf8'),
+    }
+  }
+
+  async requestAsBuffer(url: string, options?: FetchOptions): Promise<FetchResponse<Buffer>> {
+    const [urlString, swiftOptions] = await fetchOptionsToSwiftFetchOptions(url, options)
+
+    const response = await this.client.request(urlString, swiftOptions)
+
+    if (response.headers['set-cookie']) {
+      for (const cookie of response.headers['set-cookie']) {
+        await options?.cookieJar?.setCookie(cookie, urlString, { ignoreError: true })
+      }
+    }
+
+    return response
+  }
 }

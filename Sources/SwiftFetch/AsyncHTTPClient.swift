@@ -11,7 +11,7 @@ import NIOHTTP1
 import NIOFoundationCompat
 import NodeAPI
 
-var clientConfig: HTTPClient.Configuration = {
+let clientConfig: HTTPClient.Configuration = {
     var config = HTTPClient.Configuration()
 
     config.decompression = .enabled(limit: .none)
@@ -125,29 +125,42 @@ let evGroup = MultiThreadedEventLoopGroup(numberOfThreads: System.coreCount)
         }
     }
 
+    static let client = HTTPClient(eventLoopGroupProvider: .shared(evGroup), configuration: clientConfig)
+
     static func internalRequest<T>(
         url: String,
         options: [String: NodeValue]?,
         completion: @Sendable @escaping (_ response: HTTPClientResponse) async throws -> T
     ) async throws -> T {
-        try await Self.retry(withTimeout: Self.retryTimeout) {
-            var clientConfig = clientConfig
-            let followRedirect = try? await options?["followRedirect"]?.as(Bool.self)
-            if followRedirect == false {
-                clientConfig.redirectConfiguration = .disallow
+        let options = try FetchOptions(url: url, raw: options)
+        let request = try {
+            var request = options.request
+            if options.followRedirect == false {
+                request.redirectConfiguration = .disallow
             }
-            let client = HTTPClient(eventLoopGroupProvider: .shared(evGroup), configuration: clientConfig)
+
+            var tlsConfiguration = clientConfig.tlsConfiguration
+            if options.skipCertificateVerification == true {
+                tlsConfiguration?.certificateVerification = .none
+            }
+            if let pinnedCertificates = options.pinnedCertificates {
+                tlsConfiguration?.trustRoots = try NIOSSLTrustRoots.certificates(pinnedCertificates.map { try NIOSSLCertificate(bytes: Array($0), format: .der) })
+            }
+            request.tlsConfiguration = tlsConfiguration
+
+            return request
+        }()
+
+        return try await Self.retry(withTimeout: Self.retryTimeout) {
             do {
-                let response = try await client.execute(
-                    Self.mapToURLRequest(url: url, options: options),
+                let response = try await self.client.execute(
+                    request,
                     timeout: .seconds(Self.connectionTimeout)
                 )
 
                 let data = try await completion(response)
-                try await client.shutdown()
                 return data
             } catch {
-                try await client.shutdown()
                 throw error
             }
         }
@@ -168,25 +181,6 @@ let evGroup = MultiThreadedEventLoopGroup(numberOfThreads: System.coreCount)
                 dict[key] = item.value
             }
         }
-    }
-
-    static func mapToURLRequest(url: String, options: [String: NodeValue]?) throws -> HTTPClientRequest {
-        var request = HTTPClientRequest(url: url.replacingOccurrences(of: " ", with: "%20"))
-        if let method = try options?["method"]?.as(String.self) {
-            request.method = HTTPMethod(rawValue: method.uppercased())
-        }
-
-        if let headers = try options?["headers"]?.as([String: String].self) {
-            for (key, value) in headers {
-                request.headers.add(name: key, value: value)
-            }
-        }
-
-        if let body = try options?["body"]?.as(Data.self) {
-            request.body = .bytes(body)
-        }
-
-        return request
     }
 
     @discardableResult
@@ -219,8 +213,15 @@ let evGroup = MultiThreadedEventLoopGroup(numberOfThreads: System.coreCount)
                     continue
                 }
 
-                // fallthrough
-                throw error
+                break
+            } catch let error as NIOSSLError {
+                result = .failure(error)
+                if case .handshakeFailed = error {
+                    break
+                }
+
+                print("retry \(error)")
+                continue
             } catch {
                 result = .failure(error)
                 if (error as? HTTPClientError) == .invalidURL {
