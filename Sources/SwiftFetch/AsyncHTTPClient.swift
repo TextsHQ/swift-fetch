@@ -77,7 +77,7 @@ let evGroup = MultiThreadedEventLoopGroup(numberOfThreads: System.coreCount)
 
     @NodeMethod public func request(url: String, options: [String: NodeValue]?) async throws -> NodeValueConvertible {
         do {
-            return try await Self.internalRequest(url: url, options: options) { response in
+            return try await internalRequest(url: url, options: options) { response in
                 let byteBuffer = try await response.body.collect(upTo: 1024 * 1024 * 100) // up to 100MB
 
                 return await [
@@ -102,7 +102,7 @@ let evGroup = MultiThreadedEventLoopGroup(numberOfThreads: System.coreCount)
         }
 
         do {
-            try await Self.internalRequest(url: url, options: options) { response in
+            try await internalRequest(url: url, options: options) { response in
                 await callback("response", [
                     "statusCode": Int(response.status.code),
                     "headers": Self.mapHeaders(response.headers)
@@ -125,9 +125,9 @@ let evGroup = MultiThreadedEventLoopGroup(numberOfThreads: System.coreCount)
         }
     }
 
-    static let client = HTTPClient(eventLoopGroupProvider: .shared(evGroup), configuration: clientConfig)
+    let client = HTTPClient(eventLoopGroupProvider: .shared(evGroup), configuration: clientConfig)
 
-    static func internalRequest<T>(
+    func internalRequest<T>(
         url: String,
         options: [String: NodeValue]?,
         completion: @Sendable @escaping (_ response: HTTPClientResponse) async throws -> T
@@ -205,7 +205,7 @@ let evGroup = MultiThreadedEventLoopGroup(numberOfThreads: System.coreCount)
                     continue
                 }
 
-                // Hnadle single connection failures
+                // Handle single connection failures
                 // ex: NIOPosix.SingleConnectionFailure(target: [IPv4]slack.com/44.237.180.172:443, error: connection reset (error set): Connection refused (errno: 61)),
                 // TODO: handle connection refused
                 if !error.connectionErrors.isEmpty {
