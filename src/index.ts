@@ -82,17 +82,12 @@ async function internalFetch(swiftFetchClient: ISwiftFetchClient, url: string, o
 
   if (options?.cookieJar) {
     if (response.newCookies) {
-      for (const [cookieUrl, cookies] of Object.entries(response.newCookies)) {
-        for (const cookie of cookies) {
-          await options?.cookieJar?.setCookie(cookie, cookieUrl, { ignoreError: true })
-        }
-      }
+      await Promise.all(Object.entries(response.newCookies)
+        .map(async ([cookieUrl, cookies]) => Promise.all(cookies.map(cookie => options.cookieJar?.setCookie(cookie, cookieUrl, { ignoreError: true })))))
     }
 
     if (response.headers['set-cookie']) {
-      for (const cookie of response.headers['set-cookie']) {
-        await options?.cookieJar?.setCookie(cookie, urlString, { ignoreError: true })
-      }
+      await Promise.all(response.headers['set-cookie'].map(cookie => options.cookieJar?.setCookie(cookie, urlString, { ignoreError: true })))
     }
   }
 
