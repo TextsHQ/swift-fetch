@@ -29,7 +29,7 @@ interface ISwiftFetchClient {
 // eslint-disable-next-line global-require
 const SwiftFetchNative = require('../build/Release/SwiftFetch.node') as ISwiftFetchClient
 
-const client = new SwiftFetchNative()
+const globalClient = new SwiftFetchNative()
 
 async function fetchOptionsToSwiftFetchOptions(url: string, options?: FetchOptions): Promise<[string, SwiftFetchRequestOptions]> {
   let urlString = url
@@ -100,6 +100,8 @@ async function internalFetch(swiftFetchClient: ISwiftFetchClient, url: string, o
 }
 
 export async function fetch(url: string, options?: FetchOptions): Promise<FetchResponse<Buffer>> {
+  // @ts-expect-error
+  const client = options?.noClientCache ? new SwiftFetchNative() : globalClient
   return internalFetch(client, url, options)
 }
 
@@ -109,6 +111,9 @@ export async function fetchStream(url: string, options?: FetchOptions): Promise<
   const readableStream = new Readable({
     read() {},
   })
+
+  // @ts-expect-error
+  const client = options?.noClientCache ? new SwiftFetchNative() : globalClient
 
   client.requestStream(urlString, swiftOptions, (event: SwiftFetchStreamEvent, data: Buffer | SwiftFetchResponse<null>) => {
     switch (event) {
