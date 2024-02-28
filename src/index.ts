@@ -1,3 +1,4 @@
+/* eslint-disable no-case-declarations */
 import { Readable } from 'stream'
 import FormData from 'form-data'
 import type { FetchOptions, FetchResponse } from '@textshq/platform-sdk'
@@ -109,10 +110,26 @@ export async function fetchStream(url: string, options?: FetchOptions): Promise<
     read() {},
   })
 
-  client.requestStream(urlString, swiftOptions, (event: SwiftFetchStreamEvent, data: Buffer | FetchResponse<null>) => {
+  client.requestStream(urlString, swiftOptions, (event: SwiftFetchStreamEvent, data: Buffer | SwiftFetchResponse<null>) => {
     switch (event) {
       case 'response':
-        readableStream.emit('response', data as FetchResponse<null>)
+        const response = data as SwiftFetchResponse<null>
+        if (options?.cookieJar) {
+          if (response.newCookies) {
+            for (const [cookieUrl, cookies] of Object.entries(response.newCookies)) {
+              for (const cookie of cookies) {
+                options.cookieJar.setCookieSync(cookie, cookieUrl, { ignoreError: true })
+              }
+            }
+          }
+
+          if (response.headers['set-cookie']) {
+            for (const cookie of response.headers['set-cookie']) {
+              options.cookieJar.setCookieSync(cookie, urlString, { ignoreError: true })
+            }
+          }
+        }
+        readableStream.emit('response', response)
         break
       case 'data':
         readableStream.push(data)
