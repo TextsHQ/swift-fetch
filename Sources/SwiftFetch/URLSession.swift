@@ -29,9 +29,10 @@ import AsyncAlgorithms
         let options = try FetchOptions(url: url, raw: options)
 
         return try await Self.retry(withTimeout: Self.retryTimeout) { [self] in
+            let delegate = TaskDelegate(options: options)
             let (data, response) = try await urlSession.data(
                 for: options.request,
-                delegate: TaskDelegate(options: options)
+                delegate: delegate
             )
 
             guard let httpResponse = response as? HTTPURLResponse  else {
@@ -41,7 +42,10 @@ import AsyncAlgorithms
             return [
                 "body": data,
                 "statusCode": httpResponse.statusCode,
-                "headers": mapHeaders(httpResponse.allHeaderFields)
+                "headers": mapHeaders(httpResponse.allHeaderFields),
+                "newCookies": Dictionary(delegate.cookies.map { key, value in
+                    (key, value as [NodeValueConvertible])
+                }, uniquingKeysWith: { $1 })
             ]
         }
     }
@@ -62,17 +66,19 @@ import AsyncAlgorithms
         }
 
         do {
-            let (stream, response) = try await Self.retry(withTimeout: Self.retryTimeout) { [self] in
-                try await urlSession.bytes(
-                    for: options.request,
-                    delegate: TaskDelegate(options: options)
-                )
-            }
+            let delegate = TaskDelegate(options: options)
+            let (stream, response) = try await urlSession.bytes(
+                for: options.request,
+                delegate: delegate
+            )
 
             if let response = response as? HTTPURLResponse {
                 callback("response", [
                     "statusCode": response.statusCode,
-                    "headers": mapHeaders(response.allHeaderFields)
+                    "headers": mapHeaders(response.allHeaderFields),
+                    "newCookies": Dictionary(delegate.cookies.map { key, value in
+                        (key, value as [NodeValueConvertible])
+                    }, uniquingKeysWith: { $1 })
                 ])
             }
 
@@ -133,6 +139,7 @@ import AsyncAlgorithms
 
 private final class TaskDelegate: NSObject, URLSessionTaskDelegate {
     let options: FetchOptions
+    public var cookies: [String: [String]] = [:]
 
     init(options: FetchOptions) {
         self.options = options
@@ -144,7 +151,10 @@ private final class TaskDelegate: NSObject, URLSessionTaskDelegate {
         willPerformHTTPRedirection response: HTTPURLResponse,
         newRequest request: URLRequest
     ) async -> URLRequest? {
-        options.followRedirect ? request : nil
+        if let url = response.url?.absoluteString, let header = response.value(forHTTPHeaderField: "set-cookie") {
+            self.cookies[url, default: []].append(contentsOf: SetCookieParser.splitHeader(header).map { String($0) })
+        }
+        return options.followRedirect ? request : nil
     }
 
     func urlSession(_ session: URLSession, didReceive challenge: URLAuthenticationChallenge, completionHandler completion: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void) {

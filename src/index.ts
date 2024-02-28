@@ -13,12 +13,16 @@ interface SwiftFetchRequestOptions {
   pinnedCertificates?: Buffer[]
 }
 
+interface SwiftFetchResponse<T> extends FetchResponse<T> {
+  newCookies?: Record<string, string[]>
+}
+
 type SwiftFetchStreamEvent = 'response' | 'data' | 'end' | 'error'
 
 interface ISwiftFetchClient {
   new(): ISwiftFetchClient
-  request(url: string, options?: SwiftFetchRequestOptions): Promise<FetchResponse<Buffer>>
-  requestStream(url: string, options: SwiftFetchRequestOptions, callback: (event: SwiftFetchStreamEvent, data: Buffer | FetchResponse<null>) => void): Promise<void>
+  request(url: string, options?: SwiftFetchRequestOptions): Promise<SwiftFetchResponse<Buffer>>
+  requestStream(url: string, options: SwiftFetchRequestOptions, callback: (event: SwiftFetchStreamEvent, data: Buffer | SwiftFetchResponse<null>) => void): Promise<void>
 }
 
 // eslint-disable-next-line global-require
@@ -76,6 +80,14 @@ export async function fetch(url: string, options?: FetchOptions): Promise<FetchR
 
   const response = await client.request(urlString, swiftOptions)
 
+  if (response.newCookies) {
+    for (const [cookieUrl, cookies] of Object.entries(response.newCookies)) {
+      for (const cookie of cookies) {
+        await options?.cookieJar?.setCookie(cookie, cookieUrl, { ignoreError: true })
+      }
+    }
+  }
+
   if (response.headers['set-cookie']) {
     for (const cookie of response.headers['set-cookie']) {
       await options?.cookieJar?.setCookie(cookie, urlString, { ignoreError: true })
@@ -128,6 +140,14 @@ export class SwiftFetchClient {
     const [urlString, swiftOptions] = await fetchOptionsToSwiftFetchOptions(url, options)
 
     const response = await this.client.request(urlString, swiftOptions)
+
+    if (response.newCookies) {
+      for (const [cookieUrl, cookies] of Object.entries(response.newCookies)) {
+        for (const cookie of cookies) {
+          await options?.cookieJar?.setCookie(cookie, cookieUrl, { ignoreError: true })
+        }
+      }
+    }
 
     if (response.headers['set-cookie']) {
       for (const cookie of response.headers['set-cookie']) {

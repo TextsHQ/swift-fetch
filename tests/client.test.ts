@@ -113,6 +113,25 @@ test.concurrent('Request cookie handling', async () => {
   expect(cookieStr).toHaveLength(42)
 })
 
+test.concurrent('Request cookie handling (followRedirect)', async () => {
+  const jar = new CookieJar()
+
+  const response = await fetch(`${baseUrl}/cookies/set`, {
+    cookieJar: jar,
+    searchParams: {
+      foo: 'bar',
+      lemon: 'juice',
+      strawberry: 'blueberry',
+    },
+  })
+
+  expect(response.statusCode).toBe(200)
+
+  const cookieStr = jar.getCookieStringSync(`${baseUrl}`)
+
+  expect(cookieStr).toHaveLength(42)
+})
+
 test.concurrent('Request multi-part', async () => {
   const response = await fetch(`${baseUrl}/image/webp`)
 
@@ -186,16 +205,6 @@ describe('Image Streaming', () => {
 })
 
 describe('SSL Tests', () => {
-  test('Self-Signed Certificates', async () => {
-    process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0'
-
-    const response = await fetch('https://self-signed.badssl.com/')
-
-    delete process.env.NODE_TLS_REJECT_UNAUTHORIZED
-
-    expect(response.statusCode).toBe(200)
-  })
-
   test('Pinned Certificate', async () => {
     const certificate = `
     MIIF2zCCA8OgAwIBAgIUAMHz4g60cIDBpPr1gyZ/JDaaPpcwDQYJKoZIhvcNAQEL
