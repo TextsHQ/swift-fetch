@@ -75,26 +75,31 @@ async function fetchOptionsToSwiftFetchOptions(url: string, options?: FetchOptio
   return [urlString, swiftOptions]
 }
 
-export async function fetch(url: string, options?: FetchOptions): Promise<FetchResponse<Buffer>> {
+async function internalFetch(swiftFetchClient: ISwiftFetchClient, url: string, options?: FetchOptions): Promise<FetchResponse<Buffer>> {
   const [urlString, swiftOptions] = await fetchOptionsToSwiftFetchOptions(url, options)
+  const response = await swiftFetchClient.request(urlString, swiftOptions)
 
-  const response = await client.request(urlString, swiftOptions)
+  if (options?.cookieJar) {
+    if (response.newCookies) {
+      for (const [cookieUrl, cookies] of Object.entries(response.newCookies)) {
+        for (const cookie of cookies) {
+          await options?.cookieJar?.setCookie(cookie, cookieUrl, { ignoreError: true })
+        }
+      }
+    }
 
-  if (response.newCookies) {
-    for (const [cookieUrl, cookies] of Object.entries(response.newCookies)) {
-      for (const cookie of cookies) {
-        await options?.cookieJar?.setCookie(cookie, cookieUrl, { ignoreError: true })
+    if (response.headers['set-cookie']) {
+      for (const cookie of response.headers['set-cookie']) {
+        await options?.cookieJar?.setCookie(cookie, urlString, { ignoreError: true })
       }
     }
   }
 
-  if (response.headers['set-cookie']) {
-    for (const cookie of response.headers['set-cookie']) {
-      await options?.cookieJar?.setCookie(cookie, urlString, { ignoreError: true })
-    }
-  }
-
   return response
+}
+
+export async function fetch(url: string, options?: FetchOptions): Promise<FetchResponse<Buffer>> {
+  return internalFetch(client, url, options)
 }
 
 export async function fetchStream(url: string, options?: FetchOptions): Promise<Readable> {
@@ -137,24 +142,6 @@ export class SwiftFetchClient {
   }
 
   async requestAsBuffer(url: string, options?: FetchOptions): Promise<FetchResponse<Buffer>> {
-    const [urlString, swiftOptions] = await fetchOptionsToSwiftFetchOptions(url, options)
-
-    const response = await this.client.request(urlString, swiftOptions)
-
-    if (response.newCookies) {
-      for (const [cookieUrl, cookies] of Object.entries(response.newCookies)) {
-        for (const cookie of cookies) {
-          await options?.cookieJar?.setCookie(cookie, cookieUrl, { ignoreError: true })
-        }
-      }
-    }
-
-    if (response.headers['set-cookie']) {
-      for (const cookie of response.headers['set-cookie']) {
-        await options?.cookieJar?.setCookie(cookie, urlString, { ignoreError: true })
-      }
-    }
-
-    return response
+    return internalFetch(this.client, url, options)
   }
 }
